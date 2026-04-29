@@ -5,6 +5,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogBody,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
   CheckCircleIcon,
   ClockIcon,
   ExclamationIcon,
@@ -94,11 +104,12 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function EmptyState({ title, description }: { title: string; description: string }) {
+function EmptyState({ title, description, icon: Icon }: { title: string; description: string; icon?: React.ComponentType<{ className?: string }> }) {
+  const IconComponent = Icon || FolderIcon;
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
       <div className="rounded-full bg-[var(--secondary)] p-4">
-        <FolderIcon className="h-8 w-8 text-[var(--muted-foreground)]" />
+        <IconComponent className="h-8 w-8 text-[var(--muted-foreground)]" />
       </div>
       <h3 className="mt-4 text-sm font-medium">{title}</h3>
       <p className="mt-1 text-sm text-[var(--muted-foreground)]">{description}</p>
@@ -106,23 +117,41 @@ function EmptyState({ title, description }: { title: string; description: string
   );
 }
 
-function LoadingSpinner() {
+function LoadingSpinner({ size = "default" }: { size?: "small" | "default" }) {
+  const sizeClass = size === "small" ? "h-4 w-4" : "h-8 w-8";
   return (
-    <div className="flex items-center justify-center py-12">
-      <svg
-        className="h-8 w-8 animate-spin text-[var(--primary)]"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-      >
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path
-          className="opacity-75"
-          fill="currentColor"
-          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-        />
-      </svg>
-    </div>
+    <svg
+      className={`${sizeClass} animate-spin text-[var(--primary)]`}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
+  );
+}
+
+// Configuration icon
+function SettingsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+}
+
+// Column icon
+function ColumnIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+    </svg>
   );
 }
 
@@ -145,6 +174,11 @@ export default function HomeClient() {
   const [projectPeople, setProjectPeople] = useState<BasecampPerson[]>([]);
   const [loadingProjectPeople, setLoadingProjectPeople] = useState(false);
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string | null>(null);
+  
+  // Dialog state
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [tempColumnId, setTempColumnId] = useState("");
+  const [tempAssigneeId, setTempAssigneeId] = useState<string | null>(null);
 
   const loadTasks = useCallback(async () => {
     setLoadingTasks(true);
@@ -185,6 +219,7 @@ export default function HomeClient() {
       setSelectedBucketId(data.bucketId ?? null);
       if (data.lists?.length > 0) {
         setColumnListId(data.lists[0].id);
+        setTempColumnId(data.lists[0].id);
       }
     } catch (e) {
       console.error(e);
@@ -234,18 +269,6 @@ export default function HomeClient() {
   }, [bcStatus?.connected, loadProjects]);
 
   useEffect(() => {
-    if (selectedProjectId) {
-      void loadProjectColumns(selectedProjectId);
-      void loadProjectPeople(selectedProjectId);
-    } else {
-      setProjectColumns([]);
-      setSelectedBucketId(null);
-      setProjectPeople([]);
-      setSelectedAssigneeId(null);
-    }
-  }, [selectedProjectId, loadProjectColumns, loadProjectPeople]);
-
-  useEffect(() => {
     const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
     const err = params.get("bc_error");
     const ok = params.get("bc_connected");
@@ -291,7 +314,7 @@ export default function HomeClient() {
 
   const onSync = async (taskId: string) => {
     if (!selectedProjectId || !columnListId || !selectedBucketId) {
-      setImportMessage({ type: "error", text: "Please select a project and column first." });
+      setImportMessage({ type: "error", text: "Please configure a project first." });
       return;
     }
     setSyncingId(taskId);
@@ -329,6 +352,27 @@ export default function HomeClient() {
     setImportMessage({ type: "info", text: "Disconnected from Basecamp." });
   };
 
+  const handleProjectSelect = (projectId: string) => {
+    setSelectedProjectId(projectId);
+    setTempColumnId("");
+    setTempAssigneeId(null);
+    void loadProjectColumns(projectId);
+    void loadProjectPeople(projectId);
+    setConfigDialogOpen(true);
+  };
+
+  const handleConfigSave = () => {
+    setColumnListId(tempColumnId);
+    setSelectedAssigneeId(tempAssigneeId);
+    setConfigDialogOpen(false);
+  };
+
+  const handleConfigCancel = () => {
+    setTempColumnId(columnListId);
+    setTempAssigneeId(selectedAssigneeId);
+    setConfigDialogOpen(false);
+  };
+
   const projectsWithCardTable = useMemo(
     () => projects.filter((p) => p.cardTable?.enabled),
     [projects]
@@ -339,10 +383,22 @@ export default function HomeClient() {
     [projects, selectedProjectId]
   );
 
+  const selectedAssignee = useMemo(
+    () => projectPeople.find((p) => p.id === selectedAssigneeId),
+    [projectPeople, selectedAssigneeId]
+  );
+
+  const selectedColumn = useMemo(
+    () => projectColumns.find((c) => c.id === columnListId),
+    [projectColumns, columnListId]
+  );
+
+  const isConfigured = selectedProjectId && columnListId && selectedBucketId;
+
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]/80 backdrop-blur-lg">
+      <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--background)]/80 backdrop-blur-lg">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--primary)]">
@@ -381,10 +437,10 @@ export default function HomeClient() {
           >
             {importMessage.type === "success" && <CheckCircleIcon className="h-5 w-5 flex-shrink-0" />}
             {importMessage.type === "error" && <ExclamationIcon className="h-5 w-5 flex-shrink-0" />}
-            <span>{importMessage.text}</span>
+            <span className="flex-1">{importMessage.text}</span>
             <button
               onClick={() => setImportMessage(null)}
-              className="ml-auto text-current opacity-70 hover:opacity-100"
+              className="text-current opacity-70 hover:opacity-100"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -393,451 +449,436 @@ export default function HomeClient() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Left Column - Configuration */}
-          <div className="space-y-6 lg:col-span-1">
-            {/* Basecamp Connection */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Basecamp Connection</CardTitle>
-                <CardDescription>
-                  {bcStatus?.connected
-                    ? `Connected to account ${bcStatus.accountId}`
-                    : "Connect your Basecamp account to sync tasks"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2">
-                  {bcStatus?.connected ? (
-                    <Button variant="outline" onClick={() => void onDisconnect()} size="sm">
-                      Disconnect
-                    </Button>
-                  ) : (
-                    <a
-                      href="/api/basecamp/connect"
-                      className="inline-flex h-9 items-center justify-center rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--primary-foreground)] transition-colors hover:bg-[var(--primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-                    >
-                      Connect Basecamp
-                    </a>
-                  )}
+        {/* Configuration Bar */}
+        {bcStatus?.connected && (
+          <div className="mb-6 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Connection Status */}
+              <div className="flex items-center gap-3 border-r border-[var(--border)] pr-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--success)]/10">
+                  <CheckCircleIcon className="h-5 w-5 text-[var(--success)]" />
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Project Selection */}
-            {bcStatus?.connected && (
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                  <div>
-                    <CardTitle>Project</CardTitle>
-                    <CardDescription>Select a project with Card Table</CardDescription>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void loadProjects()}
-                    disabled={loadingProjects}
-                  >
-                    <RefreshIcon className={`h-4 w-4 ${loadingProjects ? "animate-spin" : ""}`} />
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {loadingProjects ? (
-                    <LoadingSpinner />
-                  ) : projectsWithCardTable.length === 0 ? (
-                    <EmptyState
-                      title="No projects found"
-                      description="Create a project with a Card Table in Basecamp"
-                    />
-                  ) : (
-                    <div className="space-y-2">
-                      {projectsWithCardTable.map((project) => (
-                        <button
-                          key={project.id}
-                          onClick={() => setSelectedProjectId(project.id)}
-                          className={`w-full rounded-lg border p-3 text-left transition-all ${
-                            selectedProjectId === project.id
-                              ? "border-[var(--primary)] bg-[var(--primary)]/5 ring-1 ring-[var(--primary)]"
-                              : "border-[var(--border)] hover:border-[var(--primary)]/50 hover:bg-[var(--secondary)]"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <FolderIcon className="h-4 w-4 text-[var(--muted-foreground)]" />
-                            <span className="font-medium text-sm">{project.name}</span>
-                          </div>
-                          {project.description && (
-                            <p className="mt-1 text-xs text-[var(--muted-foreground)] line-clamp-1 pl-6">
-                              {project.description}
-                            </p>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-{/* Column & Assignee Selection */}
-            {selectedProjectId && (
-              <Card className="overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-[var(--primary)]/10 to-transparent pb-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <svg className="h-5 w-5 text-[var(--primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        Configuration
-                      </CardTitle>
-                      <CardDescription className="mt-1">
-                        Set target column and assignee for <span className="font-medium text-[var(--foreground)]">{selectedProject?.name}</span>
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-5 pt-5">
-                  {/* Column Select */}
-                  <div className="space-y-2">
-                    <label className="flex items-center justify-between text-sm font-medium">
-                      <span className="flex items-center gap-2">
-                        <svg className="h-4 w-4 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
-                        </svg>
-                        Target Column
-                      </span>
-                      {loadingProjectColumns && (
-                        <span className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
-                          <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                          Loading
-                        </span>
-                      )}
-                    </label>
-                    {projectColumns.length > 0 ? (
-                      <div className="relative">
-                        <select
-                          className="w-full appearance-none rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-2.5 pr-10 text-sm font-medium shadow-sm transition-all focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                          value={columnListId}
-                          onChange={(e) => setColumnListId(e.target.value)}
-                        >
-                          {projectColumns.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.title}
-                            </option>
-                          ))}
-                        </select>
-                        <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    ) : !loadingProjectColumns ? (
-                      <div className="flex items-center gap-2 rounded-lg border border-[var(--destructive)]/20 bg-[var(--destructive)]/5 px-3 py-2 text-sm text-[var(--destructive)]">
-                        <ExclamationIcon className="h-4 w-4" />
-                        No columns found in this project
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {/* Divider */}
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-[var(--border)]" />
-                    </div>
-                  </div>
-
-                  {/* Assignee Select */}
-                  <div className="space-y-2">
-                    <label className="flex items-center justify-between text-sm font-medium">
-                      <span className="flex items-center gap-2">
-                        <UserIcon className="h-4 w-4 text-[var(--accent)]" />
-                        Assign To
-                        <span className="rounded-full bg-[var(--secondary)] px-2 py-0.5 text-xs font-normal text-[var(--muted-foreground)]">
-                          Optional
-                        </span>
-                      </span>
-                      {loadingProjectPeople && (
-                        <span className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
-                          <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                          Loading
-                        </span>
-                      )}
-                    </label>
-                    {projectPeople.length > 0 ? (
-                      <div className="relative">
-                        <select
-                          className="w-full appearance-none rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-2.5 pr-10 text-sm shadow-sm transition-all focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                          value={selectedAssigneeId ?? ""}
-                          onChange={(e) => setSelectedAssigneeId(e.target.value || null)}
-                        >
-                          <option value="">No assignee</option>
-                          {projectPeople.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name}
-                              {p.title ? ` - ${p.title}` : ""}
-                              {p.isOwner ? " (Owner)" : p.isAdmin ? " (Admin)" : ""}
-                            </option>
-                          ))}
-                        </select>
-                        <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    ) : !loadingProjectPeople ? (
-                      <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm text-[var(--muted-foreground)]">
-                        <UserIcon className="h-4 w-4" />
-                        No team members found
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {/* Open in Basecamp */}
-                  {selectedProject?.appUrl && (
-                    <div className="pt-2">
-                      <a
-                        href={selectedProject.appUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-4 py-2.5 text-sm font-medium transition-all hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 hover:text-[var(--primary)]"
-                      >
-                        <LinkIcon className="h-4 w-4" />
-                        Open project in Basecamp
-                        <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                      </a>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-                    </label>
-                    {projectColumns.length > 0 ? (
-                      <select
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
-                        value={columnListId}
-                        onChange={(e) => setColumnListId(e.target.value)}
-                      >
-                        {projectColumns.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.title}
-                          </option>
-                        ))}
-                      </select>
-                    ) : !loadingProjectColumns ? (
-                      <p className="text-sm text-[var(--destructive)]">No columns found</p>
-                    ) : null}
-                  </div>
-
-                  {/* Assignee Select */}
-                  <div>
-                    <label className="mb-2 flex items-center gap-2 text-sm font-medium">
-                      <UserIcon className="h-4 w-4 text-[var(--muted-foreground)]" />
-                      Assign To
-                      {loadingProjectPeople && (
-                        <span className="text-xs text-[var(--muted-foreground)]">(loading...)</span>
-                      )}
-                    </label>
-                    {projectPeople.length > 0 ? (
-                      <select
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
-                        value={selectedAssigneeId ?? ""}
-                        onChange={(e) => setSelectedAssigneeId(e.target.value || null)}
-                      >
-                        <option value="">No assignee (optional)</option>
-                        {projectPeople.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                            {p.title ? ` - ${p.title}` : ""}
-                            {p.isOwner ? " (Owner)" : p.isAdmin ? " (Admin)" : ""}
-                          </option>
-                        ))}
-                      </select>
-                    ) : !loadingProjectPeople ? (
-                      <p className="text-sm text-[var(--muted-foreground)]">No team members</p>
-                    ) : null}
-                  </div>
-
-                  {/* Quick Link */}
-                  <a
-                    href={selectedProject?.appUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
-                  >
-                    <LinkIcon className="h-3 w-3" />
-                    Open project in Basecamp
-                  </a>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Right Column - Import & Tasks */}
-          <div className="space-y-6 lg:col-span-2">
-            {/* Import Section */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <UploadIcon className="h-5 w-5 text-[var(--primary)]" />
-                  <CardTitle>Import Tasks</CardTitle>
-                </div>
-                <CardDescription>
-                  Upload a markdown file or paste your ticket content below
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="relative">
-                  <input
-                    type="file"
-                    accept=".md,.markdown,text/markdown,text/plain"
-                    onChange={(e) => void onPickFile(e.target.files?.[0] ?? null)}
-                    className="absolute inset-0 cursor-pointer opacity-0"
-                  />
-                  <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-[var(--border)] bg-[var(--secondary)]/50 px-6 py-8 transition-colors hover:border-[var(--primary)]/50 hover:bg-[var(--secondary)]">
-                    <div className="text-center">
-                      <UploadIcon className="mx-auto h-8 w-8 text-[var(--muted-foreground)]" />
-                      <p className="mt-2 text-sm font-medium">
-                        {fileName ? fileName : "Drop a markdown file or click to browse"}
-                      </p>
-                      <p className="mt-1 text-xs text-[var(--muted-foreground)]">.md or .markdown files</p>
-                    </div>
-                  </div>
-                </div>
-
-                <textarea
-                  value={markdown}
-                  onChange={(e) => setMarkdown(e.target.value)}
-                  rows={8}
-                  placeholder="Or paste your markdown content here..."
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-4 font-mono text-sm placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
-                />
-
-                <Button onClick={() => void onImport()} disabled={importing || !markdown.trim()} isLoading={importing}>
-                  {importing ? "Importing..." : "Parse & Save Tasks"}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Tasks Table */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <div>
-                  <CardTitle>Tasks</CardTitle>
-                  <CardDescription>
-                    {tasks.length} task{tasks.length !== 1 ? "s" : ""} in database
-                  </CardDescription>
+                  <p className="text-xs text-[var(--muted-foreground)]">Basecamp</p>
+                  <p className="text-sm font-medium">Connected</p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadTasks()} disabled={loadingTasks}>
-                  <RefreshIcon className={`h-4 w-4 ${loadingTasks ? "animate-spin" : ""}`} />
-                </Button>
-              </CardHeader>
-              <CardContent className="p-0">
-                {loadingTasks ? (
-                  <LoadingSpinner />
-                ) : tasks.length === 0 ? (
-                  <div className="p-6">
-                    <EmptyState title="No tasks yet" description="Import a markdown file to get started" />
-                  </div>
+              </div>
+
+              {/* Project Selection */}
+              <div className="flex flex-1 items-center gap-3">
+                {isConfigured ? (
+                  <>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--primary)]/10">
+                      <FolderIcon className="h-5 w-5 text-[var(--primary)]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-[var(--muted-foreground)]">Pushing to</p>
+                      <p className="truncate text-sm font-medium">{selectedProject?.name}</p>
+                    </div>
+                    <div className="hidden items-center gap-2 sm:flex">
+                      <Badge variant="outline" className="gap-1">
+                        <ColumnIcon className="h-3 w-3" />
+                        {selectedColumn?.title}
+                      </Badge>
+                      {selectedAssignee && (
+                        <Badge variant="outline" className="gap-1">
+                          <UserIcon className="h-3 w-3" />
+                          {selectedAssignee.name}
+                        </Badge>
+                      )}
+                    </div>
+                  </>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="border-b border-t border-[var(--border)] bg-[var(--secondary)]/50 text-xs uppercase tracking-wider text-[var(--muted-foreground)]">
-                        <tr>
-                          <th className="px-4 py-3 text-left font-medium">#</th>
-                          <th className="px-4 py-3 text-left font-medium">Task</th>
-                          <th className="px-4 py-3 text-left font-medium">Dates</th>
-                          <th className="px-4 py-3 text-left font-medium">Status</th>
-                          <th className="px-4 py-3 text-right font-medium">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--border)]">
-                        {tasks.map((t) => (
-                          <tr key={t.id} className="group transition-colors hover:bg-[var(--secondary)]/30">
-                            <td className="px-4 py-3 font-mono text-xs text-[var(--muted-foreground)]">
-                              {t.ticketNumber}
-                            </td>
-                            <td className="max-w-[300px] px-4 py-3">
-                              <div className="font-medium">{t.title}</div>
-                              {t.lastSyncError && (
-                                <p className="mt-1 text-xs text-[var(--destructive)]">{t.lastSyncError}</p>
-                              )}
-                              <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
-                                {t.importBatch.fileName ?? `Batch ${t.importBatch.id.slice(0, 8)}`}
-                              </p>
-                            </td>
-                            <td className="px-4 py-3">
-                              {t.startDate || t.endDate ? (
-                                <div className="flex items-center gap-2 text-xs">
-                                  <CalendarIcon className="h-3.5 w-3.5 text-[var(--muted-foreground)]" />
-                                  <div>
-                                    {t.startDate && (
-                                      <span className="text-[var(--muted-foreground)]">
-                                        {new Date(t.startDate).toLocaleDateString("en-US", {
-                                          month: "short",
-                                          day: "numeric",
-                                        })}
-                                      </span>
-                                    )}
-                                    {t.startDate && t.endDate && (
-                                      <ArrowRightIcon className="mx-1 inline h-3 w-3 text-[var(--muted-foreground)]" />
-                                    )}
-                                    {t.endDate && (
-                                      <span className="font-medium text-[var(--accent)]">
-                                        {new Date(t.endDate).toLocaleDateString("en-US", {
-                                          month: "short",
-                                          day: "numeric",
-                                        })}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-xs text-[var(--muted-foreground)]">No dates</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3">
-                              <StatusBadge status={t.syncStatus} />
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              {t.basecampCardId ? (
-                                <Badge variant="outline" className="gap-1">
-                                  <CheckCircleIcon className="h-3 w-3" />
-                                  Pushed
-                                </Badge>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={() => void onSync(t.id)}
-                                  disabled={
-                                    !bcStatus?.connected ||
-                                    !selectedProjectId ||
-                                    !columnListId ||
-                                    !selectedBucketId ||
-                                    syncingId === t.id
-                                  }
-                                  isLoading={syncingId === t.id}
-                                >
-                                  Push
-                                </Button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--warning)]/10">
+                      <ExclamationIcon className="h-5 w-5 text-[var(--warning)]" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-[var(--muted-foreground)]">Project</p>
+                      <p className="text-sm font-medium">Not configured</p>
+                    </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2">
+                {isConfigured ? (
+                  <Button variant="outline" size="sm" onClick={() => setConfigDialogOpen(true)}>
+                    <SettingsIcon className="mr-2 h-4 w-4" />
+                    Change
+                  </Button>
+                ) : (
+                  <Button onClick={() => setConfigDialogOpen(true)} disabled={loadingProjects}>
+                    {loadingProjects ? (
+                      <>
+                        <LoadingSpinner size="small" />
+                        <span className="ml-2">Loading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <SettingsIcon className="mr-2 h-4 w-4" />
+                        Configure Project
+                      </>
+                    )}
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => void onDisconnect()}>
+                  Disconnect
+                </Button>
+              </div>
+            </div>
           </div>
+        )}
+
+        {/* Connect Basecamp CTA */}
+        {!bcStatus?.connected && (
+          <Card className="mb-6">
+            <CardContent className="flex items-center justify-between py-6">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--primary)]/10">
+                  <LinkIcon className="h-6 w-6 text-[var(--primary)]" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Connect to Basecamp</h3>
+                  <p className="text-sm text-[var(--muted-foreground)]">Link your account to push tasks to Basecamp projects</p>
+                </div>
+              </div>
+              <a
+                href="/api/basecamp/connect"
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-[var(--primary)] px-6 text-sm font-medium text-[var(--primary-foreground)] transition-colors hover:bg-[var(--primary-hover)]"
+              >
+                Connect Basecamp
+              </a>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Import Section */}
+          <Card className="lg:col-span-1">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <UploadIcon className="h-5 w-5 text-[var(--primary)]" />
+                <CardTitle>Import Tasks</CardTitle>
+              </div>
+              <CardDescription>
+                Upload markdown or paste content
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative">
+                <input
+                  type="file"
+                  accept=".md,.markdown,text/markdown,text/plain"
+                  onChange={(e) => void onPickFile(e.target.files?.[0] ?? null)}
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                />
+                <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-[var(--border)] bg-[var(--secondary)]/50 px-4 py-6 transition-colors hover:border-[var(--primary)]/50 hover:bg-[var(--secondary)]">
+                  <div className="text-center">
+                    <UploadIcon className="mx-auto h-6 w-6 text-[var(--muted-foreground)]" />
+                    <p className="mt-2 text-sm font-medium">
+                      {fileName ? fileName : "Drop file or browse"}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--muted-foreground)]">.md files</p>
+                  </div>
+                </div>
+              </div>
+
+              <textarea
+                value={markdown}
+                onChange={(e) => setMarkdown(e.target.value)}
+                rows={6}
+                placeholder="Or paste markdown here..."
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 font-mono text-sm placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+              />
+
+              <Button 
+                onClick={() => void onImport()} 
+                disabled={importing || !markdown.trim()} 
+                isLoading={importing}
+                className="w-full"
+              >
+                {importing ? "Importing..." : "Parse & Save"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Tasks Table */}
+          <Card className="lg:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle>Tasks</CardTitle>
+                <CardDescription>
+                  {tasks.length} task{tasks.length !== 1 ? "s" : ""} in database
+                </CardDescription>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => void loadTasks()} disabled={loadingTasks}>
+                <RefreshIcon className={`h-4 w-4 ${loadingTasks ? "animate-spin" : ""}`} />
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loadingTasks ? (
+                <div className="flex items-center justify-center py-12">
+                  <LoadingSpinner />
+                </div>
+              ) : tasks.length === 0 ? (
+                <div className="p-6">
+                  <EmptyState 
+                    title="No tasks yet" 
+                    description="Import a markdown file to get started"
+                    icon={UploadIcon}
+                  />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="border-b border-t border-[var(--border)] bg-[var(--secondary)]/50 text-xs uppercase tracking-wider text-[var(--muted-foreground)]">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-medium">#</th>
+                        <th className="px-4 py-3 text-left font-medium">Task</th>
+                        <th className="px-4 py-3 text-left font-medium">Dates</th>
+                        <th className="px-4 py-3 text-left font-medium">Status</th>
+                        <th className="px-4 py-3 text-right font-medium">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border)]">
+                      {tasks.map((t) => (
+                        <tr key={t.id} className="group transition-colors hover:bg-[var(--secondary)]/30">
+                          <td className="px-4 py-3 font-mono text-xs text-[var(--muted-foreground)]">
+                            {t.ticketNumber}
+                          </td>
+                          <td className="max-w-[300px] px-4 py-3">
+                            <div className="font-medium">{t.title}</div>
+                            {t.lastSyncError && (
+                              <p className="mt-1 text-xs text-[var(--destructive)]">{t.lastSyncError}</p>
+                            )}
+                            <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+                              {t.importBatch.fileName ?? `Batch ${t.importBatch.id.slice(0, 8)}`}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3">
+                            {t.startDate || t.endDate ? (
+                              <div className="flex items-center gap-2 text-xs">
+                                <CalendarIcon className="h-3.5 w-3.5 text-[var(--muted-foreground)]" />
+                                <div>
+                                  {t.startDate && (
+                                    <span className="text-[var(--muted-foreground)]">
+                                      {new Date(t.startDate).toLocaleDateString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                      })}
+                                    </span>
+                                  )}
+                                  {t.startDate && t.endDate && (
+                                    <ArrowRightIcon className="mx-1 inline h-3 w-3 text-[var(--muted-foreground)]" />
+                                  )}
+                                  {t.endDate && (
+                                    <span className="font-medium text-[var(--accent)]">
+                                      {new Date(t.endDate).toLocaleDateString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-[var(--muted-foreground)]">No dates</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <StatusBadge status={t.syncStatus} />
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {t.basecampCardId ? (
+                              <Badge variant="outline" className="gap-1">
+                                <CheckCircleIcon className="h-3 w-3" />
+                                Pushed
+                              </Badge>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant={isConfigured ? "default" : "secondary"}
+                                onClick={() => void onSync(t.id)}
+                                disabled={!isConfigured || syncingId === t.id}
+                                isLoading={syncingId === t.id}
+                              >
+                                Push
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </main>
+
+      {/* Configuration Dialog */}
+      <Dialog open={configDialogOpen} onClose={handleConfigCancel}>
+        <DialogContent>
+          <DialogClose onClose={handleConfigCancel} />
+          <DialogHeader>
+            <DialogTitle>Configure Basecamp Project</DialogTitle>
+            <DialogDescription>
+              Select a project, column, and optionally assign tasks to a team member.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogBody className="space-y-6">
+            {/* Project Selection */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <FolderIcon className="h-4 w-4 text-[var(--primary)]" />
+                Project
+              </label>
+              {loadingProjects ? (
+                <div className="flex items-center justify-center py-8">
+                  <LoadingSpinner />
+                </div>
+              ) : projectsWithCardTable.length === 0 ? (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50 p-4 text-center">
+                  <p className="text-sm text-[var(--muted-foreground)]">No projects with Card Tables found</p>
+                </div>
+              ) : (
+                <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] p-2">
+                  {projectsWithCardTable.map((project) => (
+                    <button
+                      key={project.id}
+                      onClick={() => handleProjectSelect(project.id)}
+                      className={`w-full rounded-lg p-3 text-left transition-all ${
+                        selectedProjectId === project.id
+                          ? "bg-[var(--primary)]/10 ring-2 ring-[var(--primary)]"
+                          : "hover:bg-[var(--secondary)]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">{project.name}</span>
+                        {selectedProjectId === project.id && (
+                          <CheckCircleIcon className="h-4 w-4 text-[var(--primary)]" />
+                        )}
+                      </div>
+                      {project.description && (
+                        <p className="mt-1 text-xs text-[var(--muted-foreground)] line-clamp-1">
+                          {project.description}
+                        </p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Column Selection */}
+            {selectedProjectId && (
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <ColumnIcon className="h-4 w-4 text-[var(--accent)]" />
+                  Target Column
+                  {loadingProjectColumns && (
+                    <LoadingSpinner size="small" />
+                  )}
+                </label>
+                {projectColumns.length > 0 ? (
+                  <div className="relative">
+                    <select
+                      className="w-full appearance-none rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-3 pr-10 text-sm focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                      value={tempColumnId}
+                      onChange={(e) => setTempColumnId(e.target.value)}
+                    >
+                      <option value="">Select a column...</option>
+                      {projectColumns.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.title}
+                        </option>
+                      ))}
+                    </select>
+                    <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                ) : !loadingProjectColumns && (
+                  <div className="rounded-lg border border-[var(--destructive)]/20 bg-[var(--destructive)]/5 p-3 text-sm text-[var(--destructive)]">
+                    No columns found in this project
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Assignee Selection */}
+            {selectedProjectId && (
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <UserIcon className="h-4 w-4 text-[var(--accent)]" />
+                  Assign To
+                  <span className="rounded-full bg-[var(--secondary)] px-2 py-0.5 text-xs font-normal text-[var(--muted-foreground)]">
+                    Optional
+                  </span>
+                  {loadingProjectPeople && (
+                    <LoadingSpinner size="small" />
+                  )}
+                </label>
+                {projectPeople.length > 0 ? (
+                  <div className="relative">
+                    <select
+                      className="w-full appearance-none rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-3 pr-10 text-sm focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                      value={tempAssigneeId ?? ""}
+                      onChange={(e) => setTempAssigneeId(e.target.value || null)}
+                    >
+                      <option value="">No assignee</option>
+                      {projectPeople.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                          {p.title ? ` - ${p.title}` : ""}
+                          {p.isOwner ? " (Owner)" : p.isAdmin ? " (Admin)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                ) : !loadingProjectPeople && (
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm text-[var(--muted-foreground)]">
+                    No team members found
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Open in Basecamp link */}
+            {selectedProject?.appUrl && (
+              <a
+                href={selectedProject.appUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm text-[var(--primary)] hover:underline"
+              >
+                <LinkIcon className="h-4 w-4" />
+                Open project in Basecamp
+                <ArrowRightIcon className="h-3 w-3" />
+              </a>
+            )}
+          </DialogBody>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={handleConfigCancel}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfigSave}
+              disabled={!selectedProjectId || !tempColumnId}
+            >
+              Save Configuration
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
