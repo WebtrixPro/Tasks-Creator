@@ -49,12 +49,14 @@ export default function HomeClient() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [bcStatus, setBcStatus] = useState<{ connected: boolean; accountId?: string; expiresAt?: string } | null>(null);
-  const [columns, setColumns] = useState<ColumnOption[]>([]);
   const [columnListId, setColumnListId] = useState("");
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [projects, setProjects] = useState<BasecampProject[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [projectColumns, setProjectColumns] = useState<ColumnOption[]>([]);
+  const [loadingProjectColumns, setLoadingProjectColumns] = useState(false);
+  const [selectedBucketId, setSelectedBucketId] = useState<string | null>(null);
 
   const loadTasks = useCallback(async () => {
     setLoadingTasks(true);
@@ -67,6 +69,27 @@ export default function HomeClient() {
       console.error(e);
     } finally {
       setLoadingTasks(false);
+    }
+  }, []);
+
+  const loadProjectColumns = useCallback(async (projectId: string) => {
+    setLoadingProjectColumns(true);
+    try {
+      const res = await fetch(`/api/basecamp/projects/${projectId}/columns`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load columns");
+      setProjectColumns(data.lists ?? []);
+      setSelectedBucketId(data.bucketId ?? null);
+      // Auto-select first column
+      if (data.lists?.length > 0) {
+        setColumnListId(data.lists[0].id);
+      }
+    } catch (e) {
+      console.error(e);
+      setProjectColumns([]);
+      setSelectedBucketId(null);
+    } finally {
+      setLoadingProjectColumns(false);
     }
   }, []);
 
@@ -90,25 +113,8 @@ export default function HomeClient() {
       const st = await fetch("/api/basecamp/status");
       const stJson = await st.json();
       setBcStatus(stJson);
-      if (!stJson.connected) {
-        setColumns([]);
-        return;
-      }
-      const cols = await fetch("/api/basecamp/columns");
-      const cj = await cols.json();
-      if (!cols.ok) {
-        setColumns([]);
-        return;
-      }
-      if (cj.lists?.length) {
-        setColumns(cj.lists);
-        setColumnListId((prev) => prev || cj.lists[0].id);
-      } else {
-        setColumns([]);
-      }
     } catch {
       setBcStatus({ connected: false });
-      setColumns([]);
     }
   }, []);
 
@@ -125,6 +131,16 @@ export default function HomeClient() {
       setProjects([]);
     }
   }, [bcStatus?.connected, loadProjects]);
+
+  // Load columns when a project is selected
+  useEffect(() => {
+    if (selectedProjectId) {
+      void loadProjectColumns(selectedProjectId);
+    } else {
+      setProjectColumns([]);
+      setSelectedBucketId(null);
+    }
+  }, [selectedProjectId, loadProjectColumns]);
 
   useEffect(() => {
     const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
@@ -171,8 +187,8 @@ export default function HomeClient() {
   };
 
   const onSync = async (taskId: string) => {
-    if (!columnListId) {
-      setImportMessage("Pick a Basecamp column first (or set BASECAMP_DEFAULT_COLUMN_LIST_ID).");
+    if (!selectedProjectId || !columnListId || !selectedBucketId) {
+      setImportMessage("Select a project and column first.");
       return;
     }
     setSyncingId(taskId);
@@ -181,7 +197,7 @@ export default function HomeClient() {
       const res = await fetch(`/api/tasks/${taskId}/sync`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ columnListId }),
+        body: JSON.stringify({ columnListId, bucketId: selectedBucketId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Sync failed");
@@ -236,42 +252,15 @@ export default function HomeClient() {
             </button>
           ) : null}
         </div>
-        {bcStatus?.connected ? (
-          <div className="mt-4 max-w-md">
-            <label className="block text-sm font-medium text-[var(--muted)]">Column for new cards</label>
-            <select
-              className="mt-1 w-full rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm"
-              value={columnListId}
-              onChange={(e) => setColumnListId(e.target.value)}
-            >
-              {columns.length === 0 ? (
-                <option value="">Load columns (connect + env bucket/table)</option>
-              ) : (
-                columns.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title} ({c.type})
-                  </option>
-                ))
-              )}
-            </select>
-            <button
-              type="button"
-              className="mt-2 text-sm text-[var(--accent)] hover:underline"
-              onClick={() => void loadBc()}
-            >
-              Refresh columns
-            </button>
-          </div>
-        ) : null}
-      </section>
+        </section>
 
       {bcStatus?.connected ? (
         <section className="mb-10 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-medium">Basecamp Projects</h2>
+              <h2 className="text-lg font-medium">Select Project & Column</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                All active projects in your Basecamp account.
+                Choose a project with a Card Table to send tasks to.
               </p>
             </div>
             <button
@@ -280,7 +269,7 @@ export default function HomeClient() {
               onClick={() => void loadProjects()}
               disabled={loadingProjects}
             >
-              {loadingProjects ? "Loading..." : "Refresh"}
+              {loadingProjects ? "Loading..." : "Refresh Projects"}
             </button>
           </div>
           
@@ -289,45 +278,73 @@ export default function HomeClient() {
           ) : projects.length === 0 ? (
             <p className="mt-4 text-sm text-[var(--muted)]">No projects found.</p>
           ) : (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {projects.map((project) => (
-                <div
-                  key={project.id}
-                  className={`rounded-lg border p-4 transition-colors cursor-pointer ${
-                    selectedProjectId === project.id
-                      ? "border-[var(--accent)] bg-[var(--accent)]/5"
-                      : "border-[var(--border)] hover:border-[var(--accent)]/50"
-                  }`}
-                  onClick={() => setSelectedProjectId(project.id)}
-                >
-                  <h3 className="font-medium text-sm">{project.name}</h3>
-                  {project.description && (
-                    <p className="mt-1 text-xs text-[var(--muted)] line-clamp-2">
-                      {project.description}
-                    </p>
-                  )}
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="inline-flex items-center rounded-full bg-[var(--success)]/10 px-2 py-0.5 text-xs font-medium text-[var(--success)]">
-                      {project.status}
-                    </span>
-                    {project.cardTable?.enabled && (
-                      <span className="text-xs text-[var(--muted)]">Has Card Table</span>
+            <>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {projects.filter(p => p.cardTable?.enabled).map((project) => (
+                  <div
+                    key={project.id}
+                    className={`rounded-lg border p-4 transition-colors cursor-pointer ${
+                      selectedProjectId === project.id
+                        ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                        : "border-[var(--border)] hover:border-[var(--accent)]/50"
+                    }`}
+                    onClick={() => setSelectedProjectId(project.id)}
+                  >
+                    <h3 className="font-medium text-sm">{project.name}</h3>
+                    {project.description && (
+                      <p className="mt-1 text-xs text-[var(--muted)] line-clamp-2">
+                        {project.description}
+                      </p>
                     )}
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className="inline-flex items-center rounded-full bg-[var(--success)]/10 px-2 py-0.5 text-xs font-medium text-[var(--success)]">
+                        {project.status}
+                      </span>
+                      <span className="text-xs text-[var(--muted)]">Has Card Table</span>
+                    </div>
+                    <div className="mt-2 flex gap-2">
+                      <a
+                        href={project.appUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-[var(--accent)] hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Open in Basecamp
+                      </a>
+                    </div>
                   </div>
-                  <div className="mt-2 flex gap-2">
-                    <a
-                      href={project.appUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-[var(--accent)] hover:underline"
-                      onClick={(e) => e.stopPropagation()}
+                ))}
+              </div>
+              
+              {/* Show column selector when project is selected */}
+              {selectedProjectId && (
+                <div className="mt-6 rounded-lg border border-[var(--border)] bg-[var(--bg)] p-4">
+                  <h3 className="font-medium text-sm">
+                    Target Column
+                    {loadingProjectColumns && <span className="ml-2 text-[var(--muted)]">(loading...)</span>}
+                  </h3>
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    Select which column to add new cards to (typically the first column).
+                  </p>
+                  {projectColumns.length > 0 ? (
+                    <select
+                      className="mt-3 w-full max-w-xs rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+                      value={columnListId}
+                      onChange={(e) => setColumnListId(e.target.value)}
                     >
-                      Open in Basecamp
-                    </a>
-                  </div>
+                      {projectColumns.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.title}
+                        </option>
+                      ))}
+                    </select>
+                  ) : !loadingProjectColumns ? (
+                    <p className="mt-3 text-sm text-[var(--danger)]">No columns found for this project.</p>
+                  ) : null}
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </section>
       ) : null}
@@ -401,9 +418,10 @@ export default function HomeClient() {
                     <td className="px-3 py-2 align-top">
                       <button
                         type="button"
-                        disabled={!bcStatus?.connected || !!t.basecampCardId || syncingId === t.id}
+                        disabled={!bcStatus?.connected || !selectedProjectId || !columnListId || !selectedBucketId || !!t.basecampCardId || syncingId === t.id}
                         onClick={() => void onSync(t.id)}
                         className="rounded-md border border-[var(--border)] px-2 py-1 text-xs hover:bg-[var(--surface)] disabled:opacity-40"
+                        title={!selectedProjectId ? "Select a project first" : !columnListId ? "Select a column first" : "Push to Basecamp"}
                       >
                         {syncingId === t.id ? "Pushing…" : "Push"}
                       </button>

@@ -8,7 +8,7 @@ type Ctx = { params: Promise<{ taskId: string }> };
 
 export async function POST(req: Request, ctx: Ctx) {
   const { taskId } = await ctx.params;
-  let body: { columnListId?: string } = {};
+  let body: { columnListId?: string; bucketId?: string } = {};
   try {
     body = await req.json();
   } catch {
@@ -27,10 +27,17 @@ export async function POST(req: Request, ctx: Ctx) {
     );
   }
 
-  const bucketId = process.env.BASECAMP_BUCKET_ID;
-  const cardTableId = process.env.BASECAMP_CARD_TABLE_ID;
-  if (!bucketId || !cardTableId) {
-    return NextResponse.json({ error: "BASECAMP_BUCKET_ID and BASECAMP_CARD_TABLE_ID must be set." }, { status: 500 });
+  // Accept bucketId from request body or fall back to env var
+  const bucketId =
+    typeof body.bucketId === "string" && body.bucketId.trim()
+      ? body.bucketId.trim()
+      : process.env.BASECAMP_BUCKET_ID;
+
+  if (!bucketId) {
+    return NextResponse.json(
+      { error: "bucketId required in body or set BASECAMP_BUCKET_ID." },
+      { status: 400 },
+    );
   }
 
   const task = await prisma.task.findUnique({ where: { id: taskId } });

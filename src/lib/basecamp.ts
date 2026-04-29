@@ -144,9 +144,6 @@ export async function getProjects(
     url.searchParams.set("status", status);
   }
 
-  console.log("[v0] getProjects - URL:", url.toString());
-  console.log("[v0] getProjects - accountId:", accountId);
-
   const res = await fetch(url.toString(), {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -157,7 +154,6 @@ export async function getProjects(
 
   if (!res.ok) {
     const text = await res.text();
-    console.log("[v0] getProjects failed - status:", res.status, "response:", text);
     throw new Error(`getProjects failed (${res.status}): ${text}`);
   }
 
