@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -183,8 +184,21 @@ export default function HomeClient() {
   const [bcStatus, setBcStatus] = useState<{ connected: boolean; accountId?: string; expiresAt?: string } | null>(null);
   const [columnListId, setColumnListId] = useState("");
   const [syncingId, setSyncingId] = useState<string | null>(null);
-  const [projects, setProjects] = useState<BasecampProject[]>([]);
-  const [loadingProjects, setLoadingProjects] = useState(false);
+  
+  // TanStack Query for projects
+  const queryClient = useQueryClient();
+  const { data: projectsData, isLoading: loadingProjects } = useQuery({
+    queryKey: ["basecamp-projects"],
+    queryFn: async () => {
+      const res = await fetch("/api/basecamp/projects");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load projects");
+      return data.projects as BasecampProject[];
+    },
+    enabled: bcStatus?.connected === true,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+  const projects = projectsData ?? [];
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [projectColumns, setProjectColumns] = useState<ColumnOption[]>([]);
   const [loadingProjectColumns, setLoadingProjectColumns] = useState(false);
@@ -255,20 +269,7 @@ export default function HomeClient() {
     }
   }, []);
 
-  const loadProjects = useCallback(async () => {
-    setLoadingProjects(true);
-    try {
-      const res = await fetch("/api/basecamp/projects");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to load projects");
-      setProjects(data.projects ?? []);
-    } catch (e) {
-      console.error(e);
-      setProjects([]);
-    } finally {
-      setLoadingProjects(false);
-    }
-  }, []);
+  
 
   const loadBc = useCallback(async () => {
     try {
@@ -285,13 +286,7 @@ export default function HomeClient() {
     void loadBc();
   }, [loadTasks, loadBc]);
 
-  useEffect(() => {
-    if (bcStatus?.connected) {
-      void loadProjects();
-    } else {
-      setProjects([]);
-    }
-  }, [bcStatus?.connected, loadProjects]);
+  
 
   useEffect(() => {
     const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
@@ -421,8 +416,8 @@ const handleConfigCancel = () => {
         throw new Error(data.error ?? "Failed to create project");
       }
       
-      // Add the new project to the list
-      setProjects((prev) => [data.project, ...prev]);
+      // Invalidate and refetch projects query
+      await queryClient.invalidateQueries({ queryKey: ["basecamp-projects"] });
       
       // Reset form and close dialog
       setNewProjectName("");
@@ -430,7 +425,7 @@ const handleConfigCancel = () => {
       setCreateProjectDialogOpen(false);
       
       // Show success message
-      setImportMessage({ type: "success", text: `Project "${data.project.name}" created successfully!` });
+      setImportMessage({ type: "success", text: `Project "${data.project.name}" created successfully with default columns!` });
       
       // Auto-select the new project if it has a card table
       if (data.project.cardTable?.enabled) {

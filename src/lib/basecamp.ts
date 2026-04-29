@@ -164,6 +164,39 @@ export async function createProject(
   return res.json() as Promise<BasecampProject>;
 }
 
+export async function createCardTableColumn(
+  accessToken: string,
+  accountId: string,
+  bucketId: string,
+  cardTableId: string,
+  title: string,
+  description?: string
+): Promise<{ id: number; title: string }> {
+  const url = `${apiBase(accountId)}/buckets/${bucketId}/card_tables/${cardTableId}/columns.json`;
+  
+  const requestBody: Record<string, string> = { title };
+  if (description?.trim()) {
+    requestBody.description = description.trim();
+  }
+  
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "User-Agent": userAgent(),
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`createCardTableColumn failed (${res.status}): ${text}`);
+  }
+
+  return res.json() as Promise<{ id: number; title: string }>;
+}
+
 export async function getProjects(
   accessToken: string,
   accountId: string,

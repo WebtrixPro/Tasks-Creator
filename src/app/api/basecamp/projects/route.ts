@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getProjects, createProject } from "@/lib/basecamp";
+import { getProjects, createProject, createCardTableColumn } from "@/lib/basecamp";
 import { ensureFreshAccessToken } from "@/lib/basecampConnection";
 
 export async function GET(request: Request) {
@@ -45,17 +45,44 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { name, description } = body as { name?: string; description?: string };
 
-    console.log("[v0] Creating project with name:", name, "description:", description);
-
     if (!name?.trim()) {
       return NextResponse.json({ error: "Project name is required" }, { status: 400 });
     }
 
     const { accessToken, accountId } = await ensureFreshAccessToken();
-    console.log("[v0] Got access token, accountId:", accountId);
-    
     const project = await createProject(accessToken, accountId, name.trim(), description);
-    console.log("[v0] Project created in Basecamp:", project.id, project.name, "app_url:", project.app_url);
+
+    // Find the Card Table (kanban_board) in the project dock
+    const cardTable = project.dock.find((d) => d.name === "kanban_board");
+    
+    // If the project has a card table, create the default columns
+    if (cardTable?.enabled) {
+      const bucketId = String(project.id);
+      const cardTableId = String(cardTable.id);
+      
+      // Create the three default columns: To-Do, In Progress, Done
+      const defaultColumns = [
+        { title: "To-Do", description: "Tasks that need to be started" },
+        { title: "In Progress", description: "Tasks currently being worked on" },
+        { title: "Done", description: "Completed tasks" },
+      ];
+      
+      for (const col of defaultColumns) {
+        try {
+          await createCardTableColumn(
+            accessToken,
+            accountId,
+            bucketId,
+            cardTableId,
+            col.title,
+            col.description
+          );
+        } catch (colErr) {
+          // Log but don't fail the whole request if column creation fails
+          console.error("Failed to create column:", col.title, colErr);
+        }
+      }
+    }
 
     // Return simplified project data
     const simplified = {
@@ -68,10 +95,9 @@ export async function POST(request: Request) {
       url: project.url,
       createdAt: project.created_at,
       updatedAt: project.updated_at,
-      cardTable: project.dock.find((d) => d.name === "kanban_board"),
+      cardTable: cardTable,
     };
 
-    console.log("[v0] Returning simplified project:", JSON.stringify(simplified));
     return NextResponse.json({ project: simplified }, { status: 201 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown_error";
