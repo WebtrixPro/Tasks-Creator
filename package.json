@@ -17,7 +17,7 @@
     "test": "node --import tsx --test src/lib/parseTickets.test.ts"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.0",
+    "@prisma/client": "^7.8.0",
     "next": "^15.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -31,7 +31,7 @@
     "@types/react-dom": "^19.1.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.5.0",
-    "prisma": "^6.19.0",
+    "prisma": "^7.8.0",
     "tailwindcss": "^4.1.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"
