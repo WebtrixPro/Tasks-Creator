@@ -138,8 +138,12 @@ export async function getProjects(
   accountId: string,
   status: "active" | "archived" | "trashed" = "active"
 ): Promise<BasecampProject[]> {
-  const url = new URL(`${apiBase(accountId)}/projects.json`);
+  const baseUrl = apiBase(accountId);
+  const url = new URL(`${baseUrl}/projects.json`);
   url.searchParams.set("status", status);
+
+  console.log("[v0] getProjects - URL:", url.toString());
+  console.log("[v0] getProjects - accountId:", accountId);
 
   const res = await fetch(url.toString(), {
     headers: {
@@ -150,6 +154,7 @@ export async function getProjects(
 
   if (!res.ok) {
     const text = await res.text();
+    console.log("[v0] getProjects failed - status:", res.status, "response:", text);
     throw new Error(`getProjects failed (${res.status}): ${text}`);
   }
 
