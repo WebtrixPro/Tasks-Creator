@@ -164,6 +164,29 @@ export async function createProject(
   return res.json() as Promise<BasecampProject>;
 }
 
+export async function enableTool(
+  accessToken: string,
+  accountId: string,
+  bucketId: string,
+  toolId: string
+): Promise<void> {
+  const url = `${apiBase(accountId)}/buckets/${bucketId}/recordings/${toolId}/position.json`;
+  
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "User-Agent": userAgent(),
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`enableTool failed (${res.status}): ${text}`);
+  }
+}
+
 export async function createCardTableColumn(
   accessToken: string,
   accountId: string,

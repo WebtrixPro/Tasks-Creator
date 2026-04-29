@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getProjects, createProject, createCardTableColumn } from "@/lib/basecamp";
+import { getProjects, createProject, createCardTableColumn, enableTool } from "@/lib/basecamp";
 import { ensureFreshAccessToken } from "@/lib/basecampConnection";
 
 export async function GET(request: Request) {
@@ -53,9 +53,20 @@ export async function POST(request: Request) {
     const project = await createProject(accessToken, accountId, name.trim(), description);
 
     // Find the Card Table (kanban_board) in the project dock
-    const cardTable = project.dock.find((d) => d.name === "kanban_board");
+    let cardTable = project.dock.find((d) => d.name === "kanban_board");
     
-    // If the project has a card table, create the default columns
+    // Enable the Card Table if it exists but is not enabled
+    if (cardTable && !cardTable.enabled) {
+      try {
+        await enableTool(accessToken, accountId, String(project.id), String(cardTable.id));
+        // Update the cardTable reference to reflect it's now enabled
+        cardTable = { ...cardTable, enabled: true };
+      } catch (enableErr) {
+        console.error("Failed to enable Card Table:", enableErr);
+      }
+    }
+    
+    // If the project has a card table (now enabled), create the default columns
     if (cardTable?.enabled) {
       const bucketId = String(project.id);
       const cardTableId = String(cardTable.id);
