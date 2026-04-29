@@ -136,20 +136,28 @@ export type BasecampProject = {
 export async function getProjects(
   accessToken: string,
   accountId: string,
-  status: "active" | "archived" | "trashed" = "active"
+  status?: "active" | "archived" | "trashed"
 ): Promise<BasecampProject[]> {
-  const url = new URL(`${apiBase(accountId)}/projects.json`);
-  url.searchParams.set("status", status);
+  const baseUrl = apiBase(accountId);
+  const url = new URL(`${baseUrl}/projects.json`);
+  if (status) {
+    url.searchParams.set("status", status);
+  }
+
+  console.log("[v0] getProjects - URL:", url.toString());
+  console.log("[v0] getProjects - accountId:", accountId);
 
   const res = await fetch(url.toString(), {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "User-Agent": userAgent(),
+      "Content-Type": "application/json",
     },
   });
 
   if (!res.ok) {
     const text = await res.text();
+    console.log("[v0] getProjects failed - status:", res.status, "response:", text);
     throw new Error(`getProjects failed (${res.status}): ${text}`);
   }
 

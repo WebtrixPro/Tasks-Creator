@@ -9,7 +9,8 @@ export async function GET(request: Request) {
 
   try {
     const { accessToken, accountId } = await ensureFreshAccessToken();
-    const projects = await getProjects(accessToken, accountId, status ?? "active");
+    console.log("[v0] projects route - accountId:", accountId, "- token length:", accessToken?.length);
+    const projects = await getProjects(accessToken, accountId, status ?? undefined);
     
     // Return simplified project data for the frontend
     const simplified = projects.map((p) => ({
@@ -29,6 +30,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ projects: simplified });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown_error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    console.error("[v0] /api/basecamp/projects error:", message);
+    
+    // Return 401 if not connected, 502 for other errors
+    if (message === "Basecamp is not connected.") {
+      return NextResponse.json({ error: message, projects: [] }, { status: 401 });
+    }
+    
+    return NextResponse.json({ error: message, projects: [] }, { status: 502 });
   }
 }
