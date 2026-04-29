@@ -115,8 +115,16 @@ export default function HomeClient() {
   useEffect(() => {
     void loadTasks();
     void loadBc();
-    void loadProjects();
-  }, [loadTasks, loadBc, loadProjects]);
+  }, [loadTasks, loadBc]);
+
+  // Load projects only when connected
+  useEffect(() => {
+    if (bcStatus?.connected) {
+      void loadProjects();
+    } else {
+      setProjects([]);
+    }
+  }, [bcStatus?.connected, loadProjects]);
 
   useEffect(() => {
     const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
