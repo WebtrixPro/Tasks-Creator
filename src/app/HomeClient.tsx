@@ -413,9 +413,12 @@ export default function HomeClient() {
                       Disconnect
                     </Button>
                   ) : (
-                    <Button asChild>
-                      <a href="/api/basecamp/connect">Connect Basecamp</a>
-                    </Button>
+                    <a
+                      href="/api/basecamp/connect"
+                      className="inline-flex h-9 items-center justify-center rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--primary-foreground)] transition-colors hover:bg-[var(--primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                    >
+                      Connect Basecamp
+                    </a>
                   )}
                 </div>
               </CardContent>
