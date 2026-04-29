@@ -6,7 +6,52 @@
   --radius: 0.75rem;
 }
 
-:root {
+/* Light Theme (default) */
+:root, .light {
+  /* Background colors - clean white theme */
+  --background: #ffffff;
+  --foreground: #09090b;
+  --card: #f4f4f5;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  
+  /* Primary - Emerald green for productivity */
+  --primary: #10b981;
+  --primary-foreground: #ffffff;
+  --primary-hover: #059669;
+  
+  /* Secondary - Subtle zinc */
+  --secondary: #f4f4f5;
+  --secondary-foreground: #52525b;
+  
+  /* Muted - For less important text */
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  
+  /* Accent - Cyan for highlights */
+  --accent: #0891b2;
+  --accent-foreground: #ffffff;
+  
+  /* Borders and inputs */
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #10b981;
+  
+  /* Functional colors */
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  
+  /* Legacy support */
+  --bg: var(--background);
+  --surface: var(--card);
+  --text: var(--foreground);
+}
+
+/* Dark Theme */
+.dark {
   /* Background colors - dark theme with depth */
   --background: #09090b;
   --foreground: #fafafa;
@@ -26,7 +71,7 @@
   
   /* Muted - For less important text */
   --muted: #27272a;
-  --muted-foreground: #71717a;
+  --muted-foreground: #a1a1aa;
   
   /* Accent - Cyan for highlights */
   --accent: #06b6d4;
@@ -42,11 +87,6 @@
   --destructive-foreground: #fafafa;
   --success: #22c55e;
   --warning: #f59e0b;
-  
-  /* Legacy support */
-  --bg: var(--background);
-  --surface: var(--card);
-  --text: var(--foreground);
 }
 
 html {

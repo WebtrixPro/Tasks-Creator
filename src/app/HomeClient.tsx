@@ -16,6 +16,7 @@ import {
   CalendarIcon,
   ArrowRightIcon,
 } from "@/components/ui/icons";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 type ImportBatchSummary = { id: string; fileName: string | null; createdAt: string };
 
@@ -356,6 +357,7 @@ export default function HomeClient() {
           </div>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             {bcStatus?.connected ? (
               <Badge variant="success">Connected</Badge>
             ) : (
