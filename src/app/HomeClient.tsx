@@ -13,6 +13,8 @@ type TaskRow = {
   acceptanceCriteria: string;
   estimate: string;
   priority: string;
+  startDate: string | null;
+  endDate: string | null;
   syncStatus: string;
   basecampCardId: string | null;
   lastSyncError: string | null;
@@ -460,6 +462,7 @@ export default function HomeClient() {
                 <tr>
                   <th className="px-3 py-2 font-medium">#</th>
                   <th className="px-3 py-2 font-medium">Title</th>
+                  <th className="px-3 py-2 font-medium">Dates</th>
                   <th className="px-3 py-2 font-medium">Batch</th>
                   <th className="px-3 py-2 font-medium">Sync</th>
                   <th className="px-3 py-2 font-medium">Basecamp</th>
@@ -475,6 +478,24 @@ export default function HomeClient() {
                       {t.lastSyncError ? (
                         <div className="mt-1 text-xs text-[var(--danger)]">{t.lastSyncError}</div>
                       ) : null}
+                    </td>
+                    <td className="px-3 py-2 align-top text-xs">
+                      {t.startDate || t.endDate ? (
+                        <div className="space-y-0.5">
+                          {t.startDate && (
+                            <div className="text-[var(--muted)]">
+                              <span className="font-medium">Start:</span> {new Date(t.startDate).toLocaleDateString()}
+                            </div>
+                          )}
+                          {t.endDate && (
+                            <div className="text-[var(--accent)]">
+                              <span className="font-medium">Due:</span> {new Date(t.endDate).toLocaleDateString()}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[var(--muted)]">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-2 align-top text-xs text-[var(--muted)]">
                       {t.importBatch.fileName ?? t.importBatch.id.slice(0, 8)}
