@@ -21,6 +21,26 @@ type TaskRow = {
 
 type ColumnOption = { id: string; title: string; type: string };
 
+type BasecampProject = {
+  id: string;
+  name: string;
+  description: string;
+  purpose: string;
+  status: string;
+  appUrl: string;
+  url: string;
+  createdAt: string;
+  updatedAt: string;
+  cardTable?: {
+    id: number;
+    title: string;
+    name: string;
+    enabled: boolean;
+    url: string;
+    app_url: string;
+  };
+};
+
 export default function HomeClient() {
   const [markdown, setMarkdown] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
@@ -32,6 +52,9 @@ export default function HomeClient() {
   const [columns, setColumns] = useState<ColumnOption[]>([]);
   const [columnListId, setColumnListId] = useState("");
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [projects, setProjects] = useState<BasecampProject[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   const loadTasks = useCallback(async () => {
     setLoadingTasks(true);
@@ -44,6 +67,21 @@ export default function HomeClient() {
       console.error(e);
     } finally {
       setLoadingTasks(false);
+    }
+  }, []);
+
+  const loadProjects = useCallback(async () => {
+    setLoadingProjects(true);
+    try {
+      const res = await fetch("/api/basecamp/projects");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load projects");
+      setProjects(data.projects ?? []);
+    } catch (e) {
+      console.error(e);
+      setProjects([]);
+    } finally {
+      setLoadingProjects(false);
     }
   }, []);
 
@@ -77,7 +115,8 @@ export default function HomeClient() {
   useEffect(() => {
     void loadTasks();
     void loadBc();
-  }, [loadTasks, loadBc]);
+    void loadProjects();
+  }, [loadTasks, loadBc, loadProjects]);
 
   useEffect(() => {
     const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
@@ -217,6 +256,73 @@ export default function HomeClient() {
           </div>
         ) : null}
       </section>
+
+      {bcStatus?.connected ? (
+        <section className="mb-10 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-medium">Basecamp Projects</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                All active projects in your Basecamp account.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="text-sm text-[var(--accent)] hover:underline"
+              onClick={() => void loadProjects()}
+              disabled={loadingProjects}
+            >
+              {loadingProjects ? "Loading..." : "Refresh"}
+            </button>
+          </div>
+          
+          {loadingProjects ? (
+            <p className="mt-4 text-sm text-[var(--muted)]">Loading projects...</p>
+          ) : projects.length === 0 ? (
+            <p className="mt-4 text-sm text-[var(--muted)]">No projects found.</p>
+          ) : (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {projects.map((project) => (
+                <div
+                  key={project.id}
+                  className={`rounded-lg border p-4 transition-colors cursor-pointer ${
+                    selectedProjectId === project.id
+                      ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                      : "border-[var(--border)] hover:border-[var(--accent)]/50"
+                  }`}
+                  onClick={() => setSelectedProjectId(project.id)}
+                >
+                  <h3 className="font-medium text-sm">{project.name}</h3>
+                  {project.description && (
+                    <p className="mt-1 text-xs text-[var(--muted)] line-clamp-2">
+                      {project.description}
+                    </p>
+                  )}
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="inline-flex items-center rounded-full bg-[var(--success)]/10 px-2 py-0.5 text-xs font-medium text-[var(--success)]">
+                      {project.status}
+                    </span>
+                    {project.cardTable?.enabled && (
+                      <span className="text-xs text-[var(--muted)]">Has Card Table</span>
+                    )}
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <a
+                      href={project.appUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[var(--accent)] hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Open in Basecamp
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
 
       <section className="mb-10 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6">
         <h2 className="text-lg font-medium">Import markdown</h2>
