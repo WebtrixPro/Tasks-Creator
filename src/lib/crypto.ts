@@ -1,13 +1,28 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from "node:crypto";
 
 const ALGO = "aes-256-gcm";
 
+// Development fallback key derived from a fixed seed - ONLY for local development
+// In production, TOKEN_ENCRYPTION_KEY must be set as an environment variable
+const DEV_FALLBACK_SEED = "tasks-creator-dev-only-key-do-not-use-in-production";
+
 function getKey(): Buffer {
   const hex = process.env.TOKEN_ENCRYPTION_KEY;
-  if (!hex || hex.length !== 64 || !/^[0-9a-fA-F]+$/.test(hex)) {
-    throw new Error("TOKEN_ENCRYPTION_KEY must be 64 hexadecimal characters (32 bytes).");
+  
+  if (hex) {
+    if (hex.length !== 64 || !/^[0-9a-fA-F]+$/.test(hex)) {
+      throw new Error("TOKEN_ENCRYPTION_KEY must be 64 hexadecimal characters (32 bytes).");
+    }
+    return Buffer.from(hex, "hex");
   }
-  return Buffer.from(hex, "hex");
+  
+  // Use deterministic fallback key for development
+  if (process.env.NODE_ENV !== "production") {
+    console.warn("[crypto] TOKEN_ENCRYPTION_KEY not set - using development fallback. Set this in production!");
+    return createHash("sha256").update(DEV_FALLBACK_SEED).digest();
+  }
+  
+  throw new Error("TOKEN_ENCRYPTION_KEY must be set in production (64 hexadecimal characters).");
 }
 
 /** Returns base64: iv(12) + tag(16) + ciphertext */
