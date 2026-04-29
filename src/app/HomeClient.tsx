@@ -478,23 +478,143 @@ export default function HomeClient() {
               </Card>
             )}
 
-            {/* Column & Assignee Selection */}
+{/* Column & Assignee Selection */}
             {selectedProjectId && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Configuration</CardTitle>
-                  <CardDescription>
-                    Set target column and assignee for {selectedProject?.name}
-                  </CardDescription>
+              <Card className="overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-[var(--primary)]/10 to-transparent pb-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <svg className="h-5 w-5 text-[var(--primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Configuration
+                      </CardTitle>
+                      <CardDescription className="mt-1">
+                        Set target column and assignee for <span className="font-medium text-[var(--foreground)]">{selectedProject?.name}</span>
+                      </CardDescription>
+                    </div>
+                  </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-5 pt-5">
                   {/* Column Select */}
-                  <div>
-                    <label className="mb-2 block text-sm font-medium">
-                      Target Column
+                  <div className="space-y-2">
+                    <label className="flex items-center justify-between text-sm font-medium">
+                      <span className="flex items-center gap-2">
+                        <svg className="h-4 w-4 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                        </svg>
+                        Target Column
+                      </span>
                       {loadingProjectColumns && (
-                        <span className="ml-2 text-xs text-[var(--muted-foreground)]">(loading...)</span>
+                        <span className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+                          <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          Loading
+                        </span>
                       )}
+                    </label>
+                    {projectColumns.length > 0 ? (
+                      <div className="relative">
+                        <select
+                          className="w-full appearance-none rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-2.5 pr-10 text-sm font-medium shadow-sm transition-all focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                          value={columnListId}
+                          onChange={(e) => setColumnListId(e.target.value)}
+                        >
+                          {projectColumns.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.title}
+                            </option>
+                          ))}
+                        </select>
+                        <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    ) : !loadingProjectColumns ? (
+                      <div className="flex items-center gap-2 rounded-lg border border-[var(--destructive)]/20 bg-[var(--destructive)]/5 px-3 py-2 text-sm text-[var(--destructive)]">
+                        <ExclamationIcon className="h-4 w-4" />
+                        No columns found in this project
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Divider */}
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-[var(--border)]" />
+                    </div>
+                  </div>
+
+                  {/* Assignee Select */}
+                  <div className="space-y-2">
+                    <label className="flex items-center justify-between text-sm font-medium">
+                      <span className="flex items-center gap-2">
+                        <UserIcon className="h-4 w-4 text-[var(--accent)]" />
+                        Assign To
+                        <span className="rounded-full bg-[var(--secondary)] px-2 py-0.5 text-xs font-normal text-[var(--muted-foreground)]">
+                          Optional
+                        </span>
+                      </span>
+                      {loadingProjectPeople && (
+                        <span className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+                          <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          Loading
+                        </span>
+                      )}
+                    </label>
+                    {projectPeople.length > 0 ? (
+                      <div className="relative">
+                        <select
+                          className="w-full appearance-none rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-2.5 pr-10 text-sm shadow-sm transition-all focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                          value={selectedAssigneeId ?? ""}
+                          onChange={(e) => setSelectedAssigneeId(e.target.value || null)}
+                        >
+                          <option value="">No assignee</option>
+                          {projectPeople.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                              {p.title ? ` - ${p.title}` : ""}
+                              {p.isOwner ? " (Owner)" : p.isAdmin ? " (Admin)" : ""}
+                            </option>
+                          ))}
+                        </select>
+                        <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    ) : !loadingProjectPeople ? (
+                      <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm text-[var(--muted-foreground)]">
+                        <UserIcon className="h-4 w-4" />
+                        No team members found
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Open in Basecamp */}
+                  {selectedProject?.appUrl && (
+                    <div className="pt-2">
+                      <a
+                        href={selectedProject.appUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-4 py-2.5 text-sm font-medium transition-all hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 hover:text-[var(--primary)]"
+                      >
+                        <LinkIcon className="h-4 w-4" />
+                        Open project in Basecamp
+                        <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                      </a>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
                     </label>
                     {projectColumns.length > 0 ? (
                       <select
