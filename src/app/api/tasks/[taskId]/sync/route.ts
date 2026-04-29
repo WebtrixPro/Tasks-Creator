@@ -66,16 +66,12 @@ export async function POST(req: Request, ctx: Ctx) {
       ? task.endDate.toISOString().split('T')[0] 
       : null;
 
-    console.log("[v0] Creating card with due_on:", dueOn, "from endDate:", task.endDate);
-
     const created = await createCard(accessToken, accountId, bucketId, columnListId, {
       title: task.title,
       content,
       due_on: dueOn,
       notify: false,
     });
-
-    console.log("[v0] Card created:", created.id);
 
     // Assign the card to the selected team member if provided
     if (assigneeId) {
