@@ -155,6 +155,15 @@ function ColumnIcon({ className }: { className?: string }) {
   );
 }
 
+// Search icon
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+  );
+}
+
 export default function HomeClient() {
   const [markdown, setMarkdown] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
@@ -179,6 +188,7 @@ export default function HomeClient() {
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [tempColumnId, setTempColumnId] = useState("");
   const [tempAssigneeId, setTempAssigneeId] = useState<string | null>(null);
+  const [projectSearch, setProjectSearch] = useState("");
 
   const loadTasks = useCallback(async () => {
     setLoadingTasks(true);
@@ -365,18 +375,31 @@ export default function HomeClient() {
     setColumnListId(tempColumnId);
     setSelectedAssigneeId(tempAssigneeId);
     setConfigDialogOpen(false);
+    setProjectSearch("");
   };
 
-  const handleConfigCancel = () => {
+const handleConfigCancel = () => {
+    setConfigDialogOpen(false);
+    // Reset temp values and search
     setTempColumnId(columnListId);
     setTempAssigneeId(selectedAssigneeId);
-    setConfigDialogOpen(false);
+    setProjectSearch("");
   };
 
   const projectsWithCardTable = useMemo(
     () => projects.filter((p) => p.cardTable?.enabled),
     [projects]
   );
+
+  const filteredProjects = useMemo(() => {
+    if (!projectSearch.trim()) return projectsWithCardTable;
+    const searchLower = projectSearch.toLowerCase();
+    return projectsWithCardTable.filter(
+      (p) =>
+        p.name.toLowerCase().includes(searchLower) ||
+        p.description?.toLowerCase().includes(searchLower)
+    );
+  }, [projectsWithCardTable, projectSearch]);
 
   const selectedProject = useMemo(
     () => projects.find((p) => p.id === selectedProjectId),
@@ -736,7 +759,37 @@ export default function HomeClient() {
               <label className="flex items-center gap-2 text-sm font-medium">
                 <FolderIcon className="h-4 w-4 text-[var(--primary)]" />
                 Project
+                {projectsWithCardTable.length > 0 && (
+                  <span className="text-xs font-normal text-[var(--muted-foreground)]">
+                    ({projectsWithCardTable.length} available)
+                  </span>
+                )}
               </label>
+              
+              {/* Search Input */}
+              {!loadingProjects && projectsWithCardTable.length > 3 && (
+                <div className="relative">
+                  <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
+                  <input
+                    type="text"
+                    placeholder="Search projects..."
+                    value={projectSearch}
+                    onChange={(e) => setProjectSearch(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] py-2.5 pl-10 pr-4 text-sm placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                  />
+                  {projectSearch && (
+                    <button
+                      onClick={() => setProjectSearch("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              )}
+              
               {loadingProjects ? (
                 <div className="flex items-center justify-center py-8">
                   <LoadingSpinner />
@@ -745,9 +798,19 @@ export default function HomeClient() {
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50 p-4 text-center">
                   <p className="text-sm text-[var(--muted-foreground)]">No projects with Card Tables found</p>
                 </div>
+              ) : filteredProjects.length === 0 ? (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50 p-4 text-center">
+                  <p className="text-sm text-[var(--muted-foreground)]">No projects match &quot;{projectSearch}&quot;</p>
+                  <button 
+                    onClick={() => setProjectSearch("")}
+                    className="mt-2 text-xs text-[var(--primary)] hover:underline"
+                  >
+                    Clear search
+                  </button>
+                </div>
               ) : (
-                <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] p-2">
-                  {projectsWithCardTable.map((project) => (
+                <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-[var(--border)] p-2">
+                  {filteredProjects.map((project) => (
                     <button
                       key={project.id}
                       onClick={() => handleProjectSelect(project.id)}
