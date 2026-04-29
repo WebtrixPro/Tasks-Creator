@@ -71,27 +71,19 @@ export async function POST(request: Request) {
       const bucketId = String(project.id);
       const cardTableId = String(cardTable.id);
       
-      // Create the three default columns: To-Do, In Progress, Done
-      const defaultColumns = [
-        { title: "To-Do", description: "Tasks that need to be started" },
-        { title: "In Progress", description: "Tasks currently being worked on" },
-        { title: "Done", description: "Completed tasks" },
-      ];
-      
-      for (const col of defaultColumns) {
-        try {
-          await createCardTableColumn(
-            accessToken,
-            accountId,
-            bucketId,
-            cardTableId,
-            col.title,
-            col.description
-          );
-        } catch (colErr) {
-          // Log but don't fail the whole request if column creation fails
-          console.error("Failed to create column:", col.title, colErr);
-        }
+      // Create the Done column
+      try {
+        await createCardTableColumn(
+          accessToken,
+          accountId,
+          bucketId,
+          cardTableId,
+          "Done",
+          "Completed tasks"
+        );
+      } catch (colErr) {
+        // Log but don't fail the whole request if column creation fails
+        console.error("Failed to create Done column:", colErr);
       }
     }
 
