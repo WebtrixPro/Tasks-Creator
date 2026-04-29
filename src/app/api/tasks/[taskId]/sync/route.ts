@@ -61,9 +61,15 @@ export async function POST(req: Request, ctx: Ctx) {
       priority: task.priority,
     });
 
+    // Format end date as YYYY-MM-DD for Basecamp due_on field
+    const dueOn = task.endDate 
+      ? task.endDate.toISOString().split('T')[0] 
+      : null;
+
     const created = await createCard(accessToken, accountId, bucketId, columnListId, {
       title: task.title,
       content,
+      due_on: dueOn,
       notify: false,
     });
 
