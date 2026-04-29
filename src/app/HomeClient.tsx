@@ -1,6 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  CheckCircleIcon,
+  ClockIcon,
+  ExclamationIcon,
+  LinkIcon,
+  UploadIcon,
+  RefreshIcon,
+  FolderIcon,
+  UserIcon,
+  CalendarIcon,
+  ArrowRightIcon,
+} from "@/components/ui/icons";
 
 type ImportBatchSummary = { id: string; fileName: string | null; createdAt: string };
 
@@ -53,11 +68,68 @@ type BasecampProject = {
   };
 };
 
+function StatusBadge({ status }: { status: string }) {
+  if (status === "synced") {
+    return (
+      <Badge variant="success" className="gap-1">
+        <CheckCircleIcon className="h-3 w-3" />
+        Synced
+      </Badge>
+    );
+  }
+  if (status === "error") {
+    return (
+      <Badge variant="danger" className="gap-1">
+        <ExclamationIcon className="h-3 w-3" />
+        Error
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="gap-1">
+      <ClockIcon className="h-3 w-3" />
+      Pending
+    </Badge>
+  );
+}
+
+function EmptyState({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="rounded-full bg-[var(--secondary)] p-4">
+        <FolderIcon className="h-8 w-8 text-[var(--muted-foreground)]" />
+      </div>
+      <h3 className="mt-4 text-sm font-medium">{title}</h3>
+      <p className="mt-1 text-sm text-[var(--muted-foreground)]">{description}</p>
+    </div>
+  );
+}
+
+function LoadingSpinner() {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <svg
+        className="h-8 w-8 animate-spin text-[var(--primary)]"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        />
+      </svg>
+    </div>
+  );
+}
+
 export default function HomeClient() {
   const [markdown, setMarkdown] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
-  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [importMessage, setImportMessage] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [bcStatus, setBcStatus] = useState<{ connected: boolean; accountId?: string; expiresAt?: string } | null>(null);
@@ -110,7 +182,6 @@ export default function HomeClient() {
       if (!res.ok) throw new Error(data.error ?? "Failed to load columns");
       setProjectColumns(data.lists ?? []);
       setSelectedBucketId(data.bucketId ?? null);
-      // Auto-select first column
       if (data.lists?.length > 0) {
         setColumnListId(data.lists[0].id);
       }
@@ -153,7 +224,6 @@ export default function HomeClient() {
     void loadBc();
   }, [loadTasks, loadBc]);
 
-  // Load projects only when connected
   useEffect(() => {
     if (bcStatus?.connected) {
       void loadProjects();
@@ -162,7 +232,6 @@ export default function HomeClient() {
     }
   }, [bcStatus?.connected, loadProjects]);
 
-  // Load columns and people when a project is selected
   useEffect(() => {
     if (selectedProjectId) {
       void loadProjectColumns(selectedProjectId);
@@ -179,8 +248,8 @@ export default function HomeClient() {
     const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
     const err = params.get("bc_error");
     const ok = params.get("bc_connected");
-    if (err) setImportMessage(`Basecamp error: ${err}`);
-    if (ok) setImportMessage("Basecamp connected.");
+    if (err) setImportMessage({ type: "error", text: `Basecamp error: ${err}` });
+    if (ok) setImportMessage({ type: "success", text: "Successfully connected to Basecamp!" });
     if (err || ok) {
       window.history.replaceState({}, "", "/");
       void loadBc();
@@ -208,12 +277,12 @@ export default function HomeClient() {
       const warn = (data.warnings as string[] | undefined)?.length
         ? ` Warnings: ${(data.warnings as string[]).join("; ")}`
         : "";
-      setImportMessage(`Imported ${data.taskCount} task(s).${warn}`);
+      setImportMessage({ type: "success", text: `Successfully imported ${data.taskCount} task(s).${warn}` });
       setMarkdown("");
       setFileName(null);
       await loadTasks();
     } catch (e) {
-      setImportMessage(e instanceof Error ? e.message : "Import failed");
+      setImportMessage({ type: "error", text: e instanceof Error ? e.message : "Import failed" });
     } finally {
       setImporting(false);
     }
@@ -221,7 +290,7 @@ export default function HomeClient() {
 
   const onSync = async (taskId: string) => {
     if (!selectedProjectId || !columnListId || !selectedBucketId) {
-      setImportMessage("Select a project and column first.");
+      setImportMessage({ type: "error", text: "Please select a project and column first." });
       return;
     }
     setSyncingId(taskId);
@@ -230,18 +299,18 @@ export default function HomeClient() {
       const res = await fetch(`/api/tasks/${taskId}/sync`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          columnListId, 
+        body: JSON.stringify({
+          columnListId,
           bucketId: selectedBucketId,
           assigneeId: selectedAssigneeId,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Sync failed");
-      setImportMessage(`Synced to Basecamp (card ${data.basecampCardId}).`);
+      setImportMessage({ type: "success", text: `Task synced to Basecamp successfully!` });
       await loadTasks();
     } catch (e) {
-      setImportMessage(e instanceof Error ? e.message : "Sync failed");
+      setImportMessage({ type: "error", text: e instanceof Error ? e.message : "Sync failed" });
       await loadTasks();
     } finally {
       setSyncingId(null);
@@ -256,270 +325,394 @@ export default function HomeClient() {
     setProjectColumns([]);
     setProjectPeople([]);
     setSelectedAssigneeId(null);
-    setImportMessage("Basecamp disconnected.");
+    setImportMessage({ type: "info", text: "Disconnected from Basecamp." });
   };
 
-  const bcHint = useMemo(() => {
-    if (!bcStatus?.connected) return "Connect Basecamp to enable push.";
-    return `Connected (account ${bcStatus.accountId}).`;
-  }, [bcStatus]);
+  const projectsWithCardTable = useMemo(
+    () => projects.filter((p) => p.cardTable?.enabled),
+    [projects]
+  );
+
+  const selectedProject = useMemo(
+    () => projects.find((p) => p.id === selectedProjectId),
+    [projects, selectedProjectId]
+  );
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10">
-      <header className="mb-10 border-b border-[var(--border)] pb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Scrum task creator</h1>
-        <p className="mt-2 text-[var(--muted)]">
-          Import ticket-style markdown, store tasks in the database, push cards to your Basecamp board.
-        </p>
+    <div className="min-h-screen">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]/80 backdrop-blur-lg">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--primary)]">
+              <svg className="h-5 w-5 text-[var(--primary-foreground)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight">Tasks Creator</h1>
+              <p className="text-xs text-[var(--muted-foreground)]">Basecamp Integration</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {bcStatus?.connected ? (
+              <Badge variant="success">Connected</Badge>
+            ) : (
+              <Badge variant="outline">Disconnected</Badge>
+            )}
+          </div>
+        </div>
       </header>
 
-      <section className="mb-10 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6">
-        <h2 className="text-lg font-medium">Basecamp</h2>
-        <p className="mt-1 text-sm text-[var(--muted)]">{bcHint}</p>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <a
-            href="/api/basecamp/connect"
-            className="inline-flex rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)]"
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* Toast Message */}
+        {importMessage && (
+          <div
+            className={`mb-6 flex items-center gap-3 rounded-lg border px-4 py-3 text-sm ${
+              importMessage.type === "success"
+                ? "border-[var(--success)]/20 bg-[var(--success)]/10 text-[var(--success)]"
+                : importMessage.type === "error"
+                ? "border-[var(--destructive)]/20 bg-[var(--destructive)]/10 text-[var(--destructive)]"
+                : "border-[var(--border)] bg-[var(--secondary)] text-[var(--foreground)]"
+            }`}
           >
-            Connect Basecamp
-          </a>
-          {bcStatus?.connected ? (
+            {importMessage.type === "success" && <CheckCircleIcon className="h-5 w-5 flex-shrink-0" />}
+            {importMessage.type === "error" && <ExclamationIcon className="h-5 w-5 flex-shrink-0" />}
+            <span>{importMessage.text}</span>
             <button
-              type="button"
-              onClick={() => void onDisconnect()}
-              className="rounded-md border border-[var(--border)] px-4 py-2 text-sm hover:bg-[var(--bg)]"
+              onClick={() => setImportMessage(null)}
+              className="ml-auto text-current opacity-70 hover:opacity-100"
             >
-              Disconnect
-            </button>
-          ) : null}
-        </div>
-        </section>
-
-      {bcStatus?.connected ? (
-        <section className="mb-10 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-medium">Select Project & Column</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                Choose a project with a Card Table to send tasks to.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="text-sm text-[var(--accent)] hover:underline"
-              onClick={() => void loadProjects()}
-              disabled={loadingProjects}
-            >
-              {loadingProjects ? "Loading..." : "Refresh Projects"}
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
-          
-          {loadingProjects ? (
-            <p className="mt-4 text-sm text-[var(--muted)]">Loading projects...</p>
-          ) : projects.length === 0 ? (
-            <p className="mt-4 text-sm text-[var(--muted)]">No projects found.</p>
-          ) : (
-            <>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {projects.filter(p => p.cardTable?.enabled).map((project) => (
-                  <div
-                    key={project.id}
-                    className={`rounded-lg border p-4 transition-colors cursor-pointer ${
-                      selectedProjectId === project.id
-                        ? "border-[var(--accent)] bg-[var(--accent)]/5"
-                        : "border-[var(--border)] hover:border-[var(--accent)]/50"
-                    }`}
-                    onClick={() => setSelectedProjectId(project.id)}
-                  >
-                    <h3 className="font-medium text-sm">{project.name}</h3>
-                    {project.description && (
-                      <p className="mt-1 text-xs text-[var(--muted)] line-clamp-2">
-                        {project.description}
-                      </p>
-                    )}
-                    <div className="mt-3 flex items-center justify-between">
-                      <span className="inline-flex items-center rounded-full bg-[var(--success)]/10 px-2 py-0.5 text-xs font-medium text-[var(--success)]">
-                        {project.status}
-                      </span>
-                      <span className="text-xs text-[var(--muted)]">Has Card Table</span>
-                    </div>
-                    <div className="mt-2 flex gap-2">
-                      <a
-                        href={project.appUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-[var(--accent)] hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Open in Basecamp
-                      </a>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {/* Show column selector when project is selected */}
-              {selectedProjectId && (
-                <div className="mt-6 rounded-lg border border-[var(--border)] bg-[var(--bg)] p-4">
-                  <h3 className="font-medium text-sm">
-                    Target Column
-                    {loadingProjectColumns && <span className="ml-2 text-[var(--muted)]">(loading...)</span>}
-                  </h3>
-                  <p className="mt-1 text-xs text-[var(--muted)]">
-                    Select which column to add new cards to (typically the first column).
-                  </p>
-                  {projectColumns.length > 0 ? (
-                    <select
-                      className="mt-3 w-full max-w-xs rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-                      value={columnListId}
-                      onChange={(e) => setColumnListId(e.target.value)}
-                    >
-                      {projectColumns.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.title}
-                        </option>
-                      ))}
-                    </select>
-                  ) : !loadingProjectColumns ? (
-                    <p className="mt-3 text-sm text-[var(--danger)]">No columns found for this project.</p>
-                  ) : null}
+        )}
 
-                  {/* Assignee selector */}
-                  <div className="mt-4 border-t border-[var(--border)] pt-4">
-                    <h3 className="font-medium text-sm">
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Left Column - Configuration */}
+          <div className="space-y-6 lg:col-span-1">
+            {/* Basecamp Connection */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Basecamp Connection</CardTitle>
+                <CardDescription>
+                  {bcStatus?.connected
+                    ? `Connected to account ${bcStatus.accountId}`
+                    : "Connect your Basecamp account to sync tasks"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  {bcStatus?.connected ? (
+                    <Button variant="outline" onClick={() => void onDisconnect()} size="sm">
+                      Disconnect
+                    </Button>
+                  ) : (
+                    <Button asChild>
+                      <a href="/api/basecamp/connect">Connect Basecamp</a>
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Project Selection */}
+            {bcStatus?.connected && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                  <div>
+                    <CardTitle>Project</CardTitle>
+                    <CardDescription>Select a project with Card Table</CardDescription>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void loadProjects()}
+                    disabled={loadingProjects}
+                  >
+                    <RefreshIcon className={`h-4 w-4 ${loadingProjects ? "animate-spin" : ""}`} />
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {loadingProjects ? (
+                    <LoadingSpinner />
+                  ) : projectsWithCardTable.length === 0 ? (
+                    <EmptyState
+                      title="No projects found"
+                      description="Create a project with a Card Table in Basecamp"
+                    />
+                  ) : (
+                    <div className="space-y-2">
+                      {projectsWithCardTable.map((project) => (
+                        <button
+                          key={project.id}
+                          onClick={() => setSelectedProjectId(project.id)}
+                          className={`w-full rounded-lg border p-3 text-left transition-all ${
+                            selectedProjectId === project.id
+                              ? "border-[var(--primary)] bg-[var(--primary)]/5 ring-1 ring-[var(--primary)]"
+                              : "border-[var(--border)] hover:border-[var(--primary)]/50 hover:bg-[var(--secondary)]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <FolderIcon className="h-4 w-4 text-[var(--muted-foreground)]" />
+                            <span className="font-medium text-sm">{project.name}</span>
+                          </div>
+                          {project.description && (
+                            <p className="mt-1 text-xs text-[var(--muted-foreground)] line-clamp-1 pl-6">
+                              {project.description}
+                            </p>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Column & Assignee Selection */}
+            {selectedProjectId && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Configuration</CardTitle>
+                  <CardDescription>
+                    Set target column and assignee for {selectedProject?.name}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Column Select */}
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">
+                      Target Column
+                      {loadingProjectColumns && (
+                        <span className="ml-2 text-xs text-[var(--muted-foreground)]">(loading...)</span>
+                      )}
+                    </label>
+                    {projectColumns.length > 0 ? (
+                      <select
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                        value={columnListId}
+                        onChange={(e) => setColumnListId(e.target.value)}
+                      >
+                        {projectColumns.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.title}
+                          </option>
+                        ))}
+                      </select>
+                    ) : !loadingProjectColumns ? (
+                      <p className="text-sm text-[var(--destructive)]">No columns found</p>
+                    ) : null}
+                  </div>
+
+                  {/* Assignee Select */}
+                  <div>
+                    <label className="mb-2 flex items-center gap-2 text-sm font-medium">
+                      <UserIcon className="h-4 w-4 text-[var(--muted-foreground)]" />
                       Assign To
-                      {loadingProjectPeople && <span className="ml-2 text-[var(--muted)]">(loading...)</span>}
-                    </h3>
-                    <p className="mt-1 text-xs text-[var(--muted)]">
-                      Select a team member to assign new cards to (optional).
-                    </p>
+                      {loadingProjectPeople && (
+                        <span className="text-xs text-[var(--muted-foreground)]">(loading...)</span>
+                      )}
+                    </label>
                     {projectPeople.length > 0 ? (
                       <select
-                        className="mt-3 w-full max-w-xs rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
                         value={selectedAssigneeId ?? ""}
                         onChange={(e) => setSelectedAssigneeId(e.target.value || null)}
                       >
-                        <option value="">No assignee</option>
+                        <option value="">No assignee (optional)</option>
                         {projectPeople.map((p) => (
                           <option key={p.id} value={p.id}>
-                            {p.name}{p.title ? ` (${p.title})` : ""}{p.isOwner ? " - Owner" : p.isAdmin ? " - Admin" : ""}
+                            {p.name}
+                            {p.title ? ` - ${p.title}` : ""}
+                            {p.isOwner ? " (Owner)" : p.isAdmin ? " (Admin)" : ""}
                           </option>
                         ))}
                       </select>
                     ) : !loadingProjectPeople ? (
-                      <p className="mt-3 text-sm text-[var(--muted)]">No team members found.</p>
+                      <p className="text-sm text-[var(--muted-foreground)]">No team members</p>
                     ) : null}
                   </div>
-                </div>
-              )}
-            </>
-          )}
-        </section>
-      ) : null}
 
-      <section className="mb-10 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6">
-        <h2 className="text-lg font-medium">Import markdown</h2>
-        <p className="mt-1 text-sm text-[var(--muted)]">Use the same structure as your ticket files (Ticket blocks separated by ### ---).</p>
-        <div className="mt-4 space-y-3">
-          <input
-            type="file"
-            accept=".md,.markdown,text/markdown,text/plain"
-            onChange={(e) => void onPickFile(e.target.files?.[0] ?? null)}
-            className="block w-full text-sm text-[var(--muted)] file:mr-4 file:rounded-md file:border-0 file:bg-[var(--accent)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
-          />
-          <textarea
-            value={markdown}
-            onChange={(e) => setMarkdown(e.target.value)}
-            rows={12}
-            placeholder="Paste markdown here…"
-            className="w-full rounded-md border border-[var(--border)] bg-[var(--bg)] p-3 font-mono text-sm"
-          />
-          <button
-            type="button"
-            disabled={importing || !markdown.trim()}
-            onClick={() => void onImport()}
-            className="rounded-md bg-[var(--success)] px-4 py-2 text-sm font-medium text-black disabled:opacity-40"
-          >
-            {importing ? "Saving…" : "Parse and save to database"}
-          </button>
-        </div>
-      </section>
-
-      {importMessage ? (
-        <p className="mb-6 rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm">{importMessage}</p>
-      ) : null}
-
-      <section>
-        <h2 className="text-lg font-medium">Saved tasks</h2>
-        {loadingTasks ? (
-          <p className="mt-4 text-sm text-[var(--muted)]">Loading…</p>
-        ) : tasks.length === 0 ? (
-          <p className="mt-4 text-sm text-[var(--muted)]">No tasks yet. Import a markdown file above.</p>
-        ) : (
-          <div className="mt-4 overflow-x-auto rounded-lg border border-[var(--border)]">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="border-b border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]">
-                <tr>
-                  <th className="px-3 py-2 font-medium">#</th>
-                  <th className="px-3 py-2 font-medium">Title</th>
-                  <th className="px-3 py-2 font-medium">Dates</th>
-                  <th className="px-3 py-2 font-medium">Batch</th>
-                  <th className="px-3 py-2 font-medium">Sync</th>
-                  <th className="px-3 py-2 font-medium">Basecamp</th>
-                  <th className="px-3 py-2 font-medium" />
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map((t) => (
-                  <tr key={t.id} className="border-b border-[var(--border)] last:border-0">
-                    <td className="px-3 py-2 align-top">{t.ticketNumber}</td>
-                    <td className="px-3 py-2 align-top">
-                      <div className="font-medium">{t.title}</div>
-                      {t.lastSyncError ? (
-                        <div className="mt-1 text-xs text-[var(--danger)]">{t.lastSyncError}</div>
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-2 align-top text-xs">
-                      {t.startDate || t.endDate ? (
-                        <div className="space-y-0.5">
-                          {t.startDate && (
-                            <div className="text-[var(--muted)]">
-                              <span className="font-medium">Start:</span> {new Date(t.startDate).toLocaleDateString()}
-                            </div>
-                          )}
-                          {t.endDate && (
-                            <div className="text-[var(--accent)]">
-                              <span className="font-medium">Due:</span> {new Date(t.endDate).toLocaleDateString()}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-[var(--muted)]">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 align-top text-xs text-[var(--muted)]">
-                      {t.importBatch.fileName ?? t.importBatch.id.slice(0, 8)}
-                    </td>
-                    <td className="px-3 py-2 align-top text-xs">{t.syncStatus}</td>
-                    <td className="px-3 py-2 align-top text-xs font-mono">{t.basecampCardId ?? "—"}</td>
-                    <td className="px-3 py-2 align-top">
-                      <button
-                        type="button"
-                        disabled={!bcStatus?.connected || !selectedProjectId || !columnListId || !selectedBucketId || !!t.basecampCardId || syncingId === t.id}
-                        onClick={() => void onSync(t.id)}
-                        className="rounded-md border border-[var(--border)] px-2 py-1 text-xs hover:bg-[var(--surface)] disabled:opacity-40"
-                        title={!selectedProjectId ? "Select a project first" : !columnListId ? "Select a column first" : "Push to Basecamp"}
-                      >
-                        {syncingId === t.id ? "Pushing…" : "Push"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  {/* Quick Link */}
+                  <a
+                    href={selectedProject?.appUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
+                  >
+                    <LinkIcon className="h-3 w-3" />
+                    Open project in Basecamp
+                  </a>
+                </CardContent>
+              </Card>
+            )}
           </div>
-        )}
-      </section>
-    </main>
+
+          {/* Right Column - Import & Tasks */}
+          <div className="space-y-6 lg:col-span-2">
+            {/* Import Section */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <UploadIcon className="h-5 w-5 text-[var(--primary)]" />
+                  <CardTitle>Import Tasks</CardTitle>
+                </div>
+                <CardDescription>
+                  Upload a markdown file or paste your ticket content below
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".md,.markdown,text/markdown,text/plain"
+                    onChange={(e) => void onPickFile(e.target.files?.[0] ?? null)}
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                  />
+                  <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-[var(--border)] bg-[var(--secondary)]/50 px-6 py-8 transition-colors hover:border-[var(--primary)]/50 hover:bg-[var(--secondary)]">
+                    <div className="text-center">
+                      <UploadIcon className="mx-auto h-8 w-8 text-[var(--muted-foreground)]" />
+                      <p className="mt-2 text-sm font-medium">
+                        {fileName ? fileName : "Drop a markdown file or click to browse"}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--muted-foreground)]">.md or .markdown files</p>
+                    </div>
+                  </div>
+                </div>
+
+                <textarea
+                  value={markdown}
+                  onChange={(e) => setMarkdown(e.target.value)}
+                  rows={8}
+                  placeholder="Or paste your markdown content here..."
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-4 font-mono text-sm placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                />
+
+                <Button onClick={() => void onImport()} disabled={importing || !markdown.trim()} isLoading={importing}>
+                  {importing ? "Importing..." : "Parse & Save Tasks"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Tasks Table */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle>Tasks</CardTitle>
+                  <CardDescription>
+                    {tasks.length} task{tasks.length !== 1 ? "s" : ""} in database
+                  </CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => void loadTasks()} disabled={loadingTasks}>
+                  <RefreshIcon className={`h-4 w-4 ${loadingTasks ? "animate-spin" : ""}`} />
+                </Button>
+              </CardHeader>
+              <CardContent className="p-0">
+                {loadingTasks ? (
+                  <LoadingSpinner />
+                ) : tasks.length === 0 ? (
+                  <div className="p-6">
+                    <EmptyState title="No tasks yet" description="Import a markdown file to get started" />
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="border-b border-t border-[var(--border)] bg-[var(--secondary)]/50 text-xs uppercase tracking-wider text-[var(--muted-foreground)]">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium">#</th>
+                          <th className="px-4 py-3 text-left font-medium">Task</th>
+                          <th className="px-4 py-3 text-left font-medium">Dates</th>
+                          <th className="px-4 py-3 text-left font-medium">Status</th>
+                          <th className="px-4 py-3 text-right font-medium">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border)]">
+                        {tasks.map((t) => (
+                          <tr key={t.id} className="group transition-colors hover:bg-[var(--secondary)]/30">
+                            <td className="px-4 py-3 font-mono text-xs text-[var(--muted-foreground)]">
+                              {t.ticketNumber}
+                            </td>
+                            <td className="max-w-[300px] px-4 py-3">
+                              <div className="font-medium">{t.title}</div>
+                              {t.lastSyncError && (
+                                <p className="mt-1 text-xs text-[var(--destructive)]">{t.lastSyncError}</p>
+                              )}
+                              <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+                                {t.importBatch.fileName ?? `Batch ${t.importBatch.id.slice(0, 8)}`}
+                              </p>
+                            </td>
+                            <td className="px-4 py-3">
+                              {t.startDate || t.endDate ? (
+                                <div className="flex items-center gap-2 text-xs">
+                                  <CalendarIcon className="h-3.5 w-3.5 text-[var(--muted-foreground)]" />
+                                  <div>
+                                    {t.startDate && (
+                                      <span className="text-[var(--muted-foreground)]">
+                                        {new Date(t.startDate).toLocaleDateString("en-US", {
+                                          month: "short",
+                                          day: "numeric",
+                                        })}
+                                      </span>
+                                    )}
+                                    {t.startDate && t.endDate && (
+                                      <ArrowRightIcon className="mx-1 inline h-3 w-3 text-[var(--muted-foreground)]" />
+                                    )}
+                                    {t.endDate && (
+                                      <span className="font-medium text-[var(--accent)]">
+                                        {new Date(t.endDate).toLocaleDateString("en-US", {
+                                          month: "short",
+                                          day: "numeric",
+                                        })}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-[var(--muted-foreground)]">No dates</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <StatusBadge status={t.syncStatus} />
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {t.basecampCardId ? (
+                                <Badge variant="outline" className="gap-1">
+                                  <CheckCircleIcon className="h-3 w-3" />
+                                  Pushed
+                                </Badge>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => void onSync(t.id)}
+                                  disabled={
+                                    !bcStatus?.connected ||
+                                    !selectedProjectId ||
+                                    !columnListId ||
+                                    !selectedBucketId ||
+                                    syncingId === t.id
+                                  }
+                                  isLoading={syncingId === t.id}
+                                >
+                                  Push
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }
