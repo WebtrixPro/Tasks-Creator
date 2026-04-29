@@ -8,6 +8,8 @@ export type ParsedTask = {
   acceptanceCriteria: string;
   estimate: string;
   priority: string;
+  startDate: Date | null;
+  endDate: Date | null;
 };
 
 export type ParseResult = {
@@ -19,6 +21,39 @@ function fieldValue(line: string): { name: string; value: string } | null {
   const m = line.match(/^\*\s*\*\*(.+?):\*\*\s*(.*)$/);
   if (!m) return null;
   return { name: m[1].trim(), value: m[2].trim() };
+}
+
+/**
+ * Parse date strings like "Mon, Apr 27" or "Tue, May 05"
+ * Returns a Date object or null if parsing fails
+ */
+function parseDateString(dateStr: string): Date | null {
+  if (!dateStr || !dateStr.trim()) return null;
+  
+  const months: Record<string, number> = {
+    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+  };
+  
+  // Match patterns like "Mon, Apr 27" or "Apr 27" or "April 27"
+  const match = dateStr.match(/(?:\w+,\s*)?(\w+)\s+(\d{1,2})(?:,?\s*(\d{4}))?/i);
+  if (!match) return null;
+  
+  const monthStr = match[1].slice(0, 3); // Take first 3 chars for month abbreviation
+  const monthKey = monthStr.charAt(0).toUpperCase() + monthStr.slice(1).toLowerCase();
+  const month = months[monthKey];
+  
+  if (month === undefined) return null;
+  
+  const day = parseInt(match[2], 10);
+  const year = match[3] ? parseInt(match[3], 10) : new Date().getFullYear();
+  
+  const date = new Date(year, month, day);
+  
+  // Validate the date is valid
+  if (isNaN(date.getTime())) return null;
+  
+  return date;
 }
 
 function parseBlock(block: string, warnings: string[]): ParsedTask | null {
@@ -60,6 +95,8 @@ function parseBlock(block: string, warnings: string[]): ParsedTask | null {
     acceptanceCriteria: fields["Acceptance Criteria"] ?? "",
     estimate: fields["Estimate"] ?? "",
     priority: fields["Priority"] ?? "",
+    startDate: parseDateString(fields["Start Date"] ?? ""),
+    endDate: parseDateString(fields["End Date"] ?? ""),
   };
 }
 

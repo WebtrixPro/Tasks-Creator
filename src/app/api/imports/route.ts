@@ -57,6 +57,8 @@ export async function POST(req: Request) {
           acceptanceCriteria: t.acceptanceCriteria,
           estimate: t.estimate,
           priority: t.priority,
+          startDate: t.startDate,
+          endDate: t.endDate,
         },
       });
     }

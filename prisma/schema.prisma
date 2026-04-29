@@ -31,6 +31,8 @@ model Task {
   acceptanceCriteria   String      @default("")
   estimate             String      @default("")
   priority             String      @default("")
+  startDate            DateTime?
+  endDate              DateTime?
   importBatchId        String
   importBatch          ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
   basecampCardId       String?
