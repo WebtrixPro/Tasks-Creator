@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   try {
     const { accessToken, accountId } = await ensureFreshAccessToken();
     console.log("[v0] projects route - accountId:", accountId, "- token length:", accessToken?.length);
-    const projects = await getProjects(accessToken, accountId, status ?? "active");
+    const projects = await getProjects(accessToken, accountId, status ?? undefined);
     
     // Return simplified project data for the frontend
     const simplified = projects.map((p) => ({

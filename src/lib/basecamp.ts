@@ -136,11 +136,13 @@ export type BasecampProject = {
 export async function getProjects(
   accessToken: string,
   accountId: string,
-  status: "active" | "archived" | "trashed" = "active"
+  status?: "active" | "archived" | "trashed"
 ): Promise<BasecampProject[]> {
   const baseUrl = apiBase(accountId);
   const url = new URL(`${baseUrl}/projects.json`);
-  url.searchParams.set("status", status);
+  if (status) {
+    url.searchParams.set("status", status);
+  }
 
   console.log("[v0] getProjects - URL:", url.toString());
   console.log("[v0] getProjects - accountId:", accountId);
@@ -149,6 +151,7 @@ export async function getProjects(
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "User-Agent": userAgent(),
+      "Content-Type": "application/json",
     },
   });
 
