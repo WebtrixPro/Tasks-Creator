@@ -111,6 +111,51 @@ function apiBase(accountId: string): string {
   return `https://3.basecampapi.com/${accountId}`;
 }
 
+export type BasecampProject = {
+  id: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  name: string;
+  description: string;
+  purpose: string;
+  bookmark_url: string;
+  url: string;
+  app_url: string;
+  dock: Array<{
+    id: number;
+    title: string;
+    name: string;
+    enabled: boolean;
+    position: number;
+    url: string;
+    app_url: string;
+  }>;
+};
+
+export async function getProjects(
+  accessToken: string,
+  accountId: string,
+  status: "active" | "archived" | "trashed" = "active"
+): Promise<BasecampProject[]> {
+  const url = new URL(`${apiBase(accountId)}/projects.json`);
+  url.searchParams.set("status", status);
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "User-Agent": userAgent(),
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`getProjects failed (${res.status}): ${text}`);
+  }
+
+  return res.json() as Promise<BasecampProject[]>;
+}
+
 export async function getCardTable(accessToken: string, accountId: string, bucketId: string, cardTableId: string) {
   const url = `${apiBase(accountId)}/buckets/${bucketId}/card_tables/${cardTableId}.json`;
   const res = await fetch(url, {
