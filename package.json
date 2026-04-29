@@ -8,16 +8,16 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "npx prisma@6 generate && next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push",
+    "postinstall": "npx prisma@6 generate",
+    "db:migrate": "npx prisma@6 migrate dev",
+    "db:push": "npx prisma@6 db push",
     "test": "node --import tsx --test src/lib/parseTickets.test.ts"
   },
   "dependencies": {
-    "@prisma/client": "^7.8.0",
+    "@prisma/client": "6.19.3",
     "next": "^15.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -31,7 +31,7 @@
     "@types/react-dom": "^19.1.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.5.0",
-    "prisma": "^7.8.0",
+    "prisma": "6.19.3",
     "tailwindcss": "^4.1.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"
