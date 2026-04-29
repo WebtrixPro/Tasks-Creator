@@ -242,6 +242,19 @@ export async function createCard(
   body: { title: string; content: string; due_on?: string | null; notify?: boolean },
 ) {
   const url = `${apiBase(accountId)}/buckets/${bucketId}/card_tables/lists/${columnListId}/cards.json`;
+  
+  // Build request body, only include due_on if it has a value
+  const requestBody: Record<string, unknown> = {
+    title: body.title,
+    content: body.content,
+    notify: body.notify ?? false,
+  };
+  
+  // Basecamp expects due_on as YYYY-MM-DD string
+  if (body.due_on) {
+    requestBody.due_on = body.due_on;
+  }
+  
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -249,12 +262,7 @@ export async function createCard(
       "Content-Type": "application/json",
       "User-Agent": userAgent(),
     },
-    body: JSON.stringify({
-      title: body.title,
-      content: body.content,
-      due_on: body.due_on ?? undefined,
-      notify: body.notify ?? false,
-    }),
+    body: JSON.stringify(requestBody),
   });
   if (!res.ok) {
     const text = await res.text();
