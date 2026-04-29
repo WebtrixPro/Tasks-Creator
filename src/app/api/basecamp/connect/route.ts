@@ -7,9 +7,9 @@ export async function GET() {
     return NextResponse.json({ error: "BASECAMP_CLIENT_ID is not configured." }, { status: 500 });
   }
 
-  const redirectUri =
-    process.env.BASECAMP_REDIRECT_URI?.trim() ||
-    `${process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "http://localhost:3000"}/api/basecamp/callback`;
+  // Server-side: use APP_URL first, then NEXT_PUBLIC_APP_URL, then localhost fallback
+  const baseUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  const redirectUri = process.env.BASECAMP_REDIRECT_URI?.trim() || `${baseUrl}/api/basecamp/callback`;
 
   const state = randomBytes(24).toString("hex");
   const url = new URL("https://launchpad.37signals.com/authorization/new");
