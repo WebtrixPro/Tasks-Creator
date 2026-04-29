@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getProjects } from "@/lib/basecamp";
+import { getProjects, createProject, createCardTableColumn, enableTool } from "@/lib/basecamp";
 import { ensureFreshAccessToken } from "@/lib/basecampConnection";
 
 export async function GET(request: Request) {
@@ -37,5 +37,79 @@ export async function GET(request: Request) {
     }
     
     return NextResponse.json({ error: message, projects: [] }, { status: 502 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { name, description } = body as { name?: string; description?: string };
+
+    if (!name?.trim()) {
+      return NextResponse.json({ error: "Project name is required" }, { status: 400 });
+    }
+
+    const { accessToken, accountId } = await ensureFreshAccessToken();
+    const project = await createProject(accessToken, accountId, name.trim(), description);
+
+    // Find the Card Table (kanban_board) in the project dock
+    let cardTable = project.dock.find((d) => d.name === "kanban_board");
+    
+    // Enable the Card Table if it exists but is not enabled
+    if (cardTable && !cardTable.enabled) {
+      try {
+        await enableTool(accessToken, accountId, String(project.id), String(cardTable.id));
+        // Update the cardTable reference to reflect it's now enabled
+        cardTable = { ...cardTable, enabled: true };
+      } catch (enableErr) {
+        console.error("Failed to enable Card Table:", enableErr);
+      }
+    }
+    
+    // If the project has a card table (now enabled), create the default columns
+    if (cardTable?.enabled) {
+      const bucketId = String(project.id);
+      const cardTableId = String(cardTable.id);
+      
+      // Create the Done column
+      try {
+        await createCardTableColumn(
+          accessToken,
+          accountId,
+          bucketId,
+          cardTableId,
+          "Done",
+          "Completed tasks"
+        );
+      } catch (colErr) {
+        // Log but don't fail the whole request if column creation fails
+        console.error("Failed to create Done column:", colErr);
+      }
+    }
+
+    // Return simplified project data
+    const simplified = {
+      id: String(project.id),
+      name: project.name,
+      description: project.description,
+      purpose: project.purpose,
+      status: project.status,
+      appUrl: project.app_url,
+      url: project.url,
+      createdAt: project.created_at,
+      updatedAt: project.updated_at,
+      cardTable: cardTable,
+    };
+
+    return NextResponse.json({ project: simplified }, { status: 201 });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "unknown_error";
+    console.error("[v0] POST /api/basecamp/projects error:", message);
+
+    if (message === "Basecamp is not connected.") {
+      return NextResponse.json({ error: message }, { status: 401 });
+    }
+
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
