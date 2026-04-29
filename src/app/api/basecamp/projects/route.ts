@@ -45,12 +45,17 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { name, description } = body as { name?: string; description?: string };
 
+    console.log("[v0] Creating project with name:", name, "description:", description);
+
     if (!name?.trim()) {
       return NextResponse.json({ error: "Project name is required" }, { status: 400 });
     }
 
     const { accessToken, accountId } = await ensureFreshAccessToken();
+    console.log("[v0] Got access token, accountId:", accountId);
+    
     const project = await createProject(accessToken, accountId, name.trim(), description);
+    console.log("[v0] Project created in Basecamp:", project.id, project.name, "app_url:", project.app_url);
 
     // Return simplified project data
     const simplified = {
@@ -66,6 +71,7 @@ export async function POST(request: Request) {
       cardTable: project.dock.find((d) => d.name === "kanban_board"),
     };
 
+    console.log("[v0] Returning simplified project:", JSON.stringify(simplified));
     return NextResponse.json({ project: simplified }, { status: 201 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown_error";
