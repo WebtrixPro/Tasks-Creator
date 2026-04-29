@@ -21,6 +21,16 @@ type TaskRow = {
 
 type ColumnOption = { id: string; title: string; type: string };
 
+type BasecampPerson = {
+  id: string;
+  name: string;
+  email: string;
+  title: string | null;
+  avatarUrl: string;
+  isAdmin: boolean;
+  isOwner: boolean;
+};
+
 type BasecampProject = {
   id: string;
   name: string;
@@ -57,6 +67,9 @@ export default function HomeClient() {
   const [projectColumns, setProjectColumns] = useState<ColumnOption[]>([]);
   const [loadingProjectColumns, setLoadingProjectColumns] = useState(false);
   const [selectedBucketId, setSelectedBucketId] = useState<string | null>(null);
+  const [projectPeople, setProjectPeople] = useState<BasecampPerson[]>([]);
+  const [loadingProjectPeople, setLoadingProjectPeople] = useState(false);
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState<string | null>(null);
 
   const loadTasks = useCallback(async () => {
     setLoadingTasks(true);
@@ -69,6 +82,21 @@ export default function HomeClient() {
       console.error(e);
     } finally {
       setLoadingTasks(false);
+    }
+  }, []);
+
+  const loadProjectPeople = useCallback(async (projectId: string) => {
+    setLoadingProjectPeople(true);
+    try {
+      const res = await fetch(`/api/basecamp/projects/${projectId}/people`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load people");
+      setProjectPeople(data.people ?? []);
+    } catch (e) {
+      console.error(e);
+      setProjectPeople([]);
+    } finally {
+      setLoadingProjectPeople(false);
     }
   }, []);
 
@@ -132,15 +160,18 @@ export default function HomeClient() {
     }
   }, [bcStatus?.connected, loadProjects]);
 
-  // Load columns when a project is selected
+  // Load columns and people when a project is selected
   useEffect(() => {
     if (selectedProjectId) {
       void loadProjectColumns(selectedProjectId);
+      void loadProjectPeople(selectedProjectId);
     } else {
       setProjectColumns([]);
       setSelectedBucketId(null);
+      setProjectPeople([]);
+      setSelectedAssigneeId(null);
     }
-  }, [selectedProjectId, loadProjectColumns]);
+  }, [selectedProjectId, loadProjectColumns, loadProjectPeople]);
 
   useEffect(() => {
     const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
@@ -197,7 +228,11 @@ export default function HomeClient() {
       const res = await fetch(`/api/tasks/${taskId}/sync`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ columnListId, bucketId: selectedBucketId }),
+        body: JSON.stringify({ 
+          columnListId, 
+          bucketId: selectedBucketId,
+          assigneeId: selectedAssigneeId,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Sync failed");
@@ -214,7 +249,11 @@ export default function HomeClient() {
   const onDisconnect = async () => {
     await fetch("/api/basecamp/disconnect", { method: "POST" });
     setBcStatus({ connected: false });
-    setColumns([]);
+    setProjects([]);
+    setSelectedProjectId(null);
+    setProjectColumns([]);
+    setProjectPeople([]);
+    setSelectedAssigneeId(null);
     setImportMessage("Basecamp disconnected.");
   };
 
@@ -342,6 +381,33 @@ export default function HomeClient() {
                   ) : !loadingProjectColumns ? (
                     <p className="mt-3 text-sm text-[var(--danger)]">No columns found for this project.</p>
                   ) : null}
+
+                  {/* Assignee selector */}
+                  <div className="mt-4 border-t border-[var(--border)] pt-4">
+                    <h3 className="font-medium text-sm">
+                      Assign To
+                      {loadingProjectPeople && <span className="ml-2 text-[var(--muted)]">(loading...)</span>}
+                    </h3>
+                    <p className="mt-1 text-xs text-[var(--muted)]">
+                      Select a team member to assign new cards to (optional).
+                    </p>
+                    {projectPeople.length > 0 ? (
+                      <select
+                        className="mt-3 w-full max-w-xs rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+                        value={selectedAssigneeId ?? ""}
+                        onChange={(e) => setSelectedAssigneeId(e.target.value || null)}
+                      >
+                        <option value="">No assignee</option>
+                        {projectPeople.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}{p.title ? ` (${p.title})` : ""}{p.isOwner ? " - Owner" : p.isAdmin ? " - Admin" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    ) : !loadingProjectPeople ? (
+                      <p className="mt-3 text-sm text-[var(--muted)]">No team members found.</p>
+                    ) : null}
+                  </div>
                 </div>
               )}
             </>

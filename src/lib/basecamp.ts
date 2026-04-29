@@ -160,6 +160,61 @@ export async function getProjects(
   return res.json() as Promise<BasecampProject[]>;
 }
 
+export type BasecampPerson = {
+  id: number;
+  name: string;
+  email_address: string;
+  title: string | null;
+  avatar_url: string;
+  admin: boolean;
+  owner: boolean;
+};
+
+export async function getProjectPeople(
+  accessToken: string,
+  accountId: string,
+  projectId: string
+): Promise<BasecampPerson[]> {
+  const url = `${apiBase(accountId)}/projects/${projectId}/people.json`;
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "User-Agent": userAgent(),
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`getProjectPeople failed (${res.status}): ${text}`);
+  }
+
+  return res.json() as Promise<BasecampPerson[]>;
+}
+
+export async function updateCard(
+  accessToken: string,
+  accountId: string,
+  bucketId: string,
+  cardId: string,
+  body: { title?: string; content?: string; due_on?: string | null; assignee_ids?: number[] }
+): Promise<void> {
+  const url = `${apiBase(accountId)}/buckets/${bucketId}/card_tables/cards/${cardId}.json`;
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "User-Agent": userAgent(),
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`updateCard failed (${res.status}): ${text}`);
+  }
+}
+
 export async function getCardTable(accessToken: string, accountId: string, bucketId: string, cardTableId: string) {
   const url = `${apiBase(accountId)}/buckets/${bucketId}/card_tables/${cardTableId}.json`;
   const res = await fetch(url, {
