@@ -164,6 +164,15 @@ function SearchIcon({ className }: { className?: string }) {
   );
 }
 
+// Plus icon
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+    </svg>
+  );
+}
+
 export default function HomeClient() {
   const [markdown, setMarkdown] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
@@ -189,6 +198,12 @@ export default function HomeClient() {
   const [tempColumnId, setTempColumnId] = useState("");
   const [tempAssigneeId, setTempAssigneeId] = useState<string | null>(null);
   const [projectSearch, setProjectSearch] = useState("");
+  
+  // Create project dialog state
+  const [createProjectDialogOpen, setCreateProjectDialogOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectDescription, setNewProjectDescription] = useState("");
+  const [creatingProject, setCreatingProject] = useState(false);
 
   const loadTasks = useCallback(async () => {
     setLoadingTasks(true);
@@ -384,6 +399,49 @@ const handleConfigCancel = () => {
     setTempColumnId(columnListId);
     setTempAssigneeId(selectedAssigneeId);
     setProjectSearch("");
+  };
+
+  const handleCreateProject = async () => {
+    if (!newProjectName.trim()) return;
+    
+    setCreatingProject(true);
+    try {
+      const res = await fetch("/api/basecamp/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newProjectName.trim(),
+          description: newProjectDescription.trim() || undefined,
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error ?? "Failed to create project");
+      }
+      
+      // Add the new project to the list
+      setProjects((prev) => [data.project, ...prev]);
+      
+      // Reset form and close dialog
+      setNewProjectName("");
+      setNewProjectDescription("");
+      setCreateProjectDialogOpen(false);
+      
+      // Show success message
+      setImportMessage({ type: "success", text: `Project "${data.project.name}" created successfully!` });
+      
+      // Auto-select the new project if it has a card table
+      if (data.project.cardTable?.enabled) {
+        handleProjectSelect(data.project.id);
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to create project";
+      setImportMessage({ type: "error", text: message });
+    } finally {
+      setCreatingProject(false);
+    }
   };
 
   const projectsWithCardTable = useMemo(
@@ -756,15 +814,24 @@ const handleConfigCancel = () => {
           <DialogBody className="space-y-6">
             {/* Project Selection */}
             <div className="space-y-3">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <FolderIcon className="h-4 w-4 text-[var(--primary)]" />
-                Project
-                {projectsWithCardTable.length > 0 && (
-                  <span className="text-xs font-normal text-[var(--muted-foreground)]">
-                    ({projectsWithCardTable.length} available)
-                  </span>
-                )}
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <FolderIcon className="h-4 w-4 text-[var(--primary)]" />
+                  Project
+                  {projectsWithCardTable.length > 0 && (
+                    <span className="text-xs font-normal text-[var(--muted-foreground)]">
+                      ({projectsWithCardTable.length} available)
+                    </span>
+                  )}
+                </label>
+                <button
+                  onClick={() => setCreateProjectDialogOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-[var(--secondary)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--secondary)]/80"
+                >
+                  <PlusIcon className="h-3.5 w-3.5" />
+                  New Project
+                </button>
+              </div>
               
               {/* Search Input */}
               {!loadingProjects && projectsWithCardTable.length > 3 && (
@@ -938,6 +1005,101 @@ const handleConfigCancel = () => {
               disabled={!selectedProjectId || !tempColumnId}
             >
               Save Configuration
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Project Dialog */}
+      <Dialog 
+        open={createProjectDialogOpen} 
+        onClose={() => {
+          setCreateProjectDialogOpen(false);
+          setNewProjectName("");
+          setNewProjectDescription("");
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogClose 
+            onClose={() => {
+              setCreateProjectDialogOpen(false);
+              setNewProjectName("");
+              setNewProjectDescription("");
+            }} 
+          />
+          <DialogHeader>
+            <DialogTitle>Create New Project</DialogTitle>
+            <DialogDescription>
+              Create a new project in Basecamp. The project will include a Card Table for managing tasks.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogBody className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="project-name" className="text-sm font-medium">
+                Project Name <span className="text-[var(--destructive)]">*</span>
+              </label>
+              <input
+                id="project-name"
+                type="text"
+                placeholder="Enter project name..."
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="project-description" className="flex items-center gap-2 text-sm font-medium">
+                Description
+                <span className="rounded-full bg-[var(--secondary)] px-2 py-0.5 text-xs font-normal text-[var(--muted-foreground)]">
+                  Optional
+                </span>
+              </label>
+              <textarea
+                id="project-description"
+                placeholder="Add a description for your project..."
+                value={newProjectDescription}
+                onChange={(e) => setNewProjectDescription(e.target.value)}
+                rows={3}
+                className="w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+              />
+            </div>
+
+            <div className="rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/5 p-3">
+              <p className="text-xs text-[var(--accent)]">
+                <strong>Note:</strong> After creating the project, you may need to enable the Card Table in Basecamp settings for it to appear in the project list.
+              </p>
+            </div>
+          </DialogBody>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setCreateProjectDialogOpen(false);
+                setNewProjectName("");
+                setNewProjectDescription("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateProject}
+              disabled={!newProjectName.trim() || creatingProject}
+            >
+              {creatingProject ? (
+                <>
+                  <LoadingSpinner size="small" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <PlusIcon className="h-4 w-4" />
+                  Create Project
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

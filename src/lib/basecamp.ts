@@ -133,6 +133,37 @@ export type BasecampProject = {
   }>;
 };
 
+export async function createProject(
+  accessToken: string,
+  accountId: string,
+  name: string,
+  description?: string
+): Promise<BasecampProject> {
+  const url = `${apiBase(accountId)}/projects.json`;
+  
+  const requestBody: Record<string, string> = { name };
+  if (description?.trim()) {
+    requestBody.description = description.trim();
+  }
+  
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "User-Agent": userAgent(),
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`createProject failed (${res.status}): ${text}`);
+  }
+
+  return res.json() as Promise<BasecampProject>;
+}
+
 export async function getProjects(
   accessToken: string,
   accountId: string,
