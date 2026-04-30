@@ -775,7 +775,7 @@ const handleConfigCancel = () => {
                             ) : (
                               <Button
                                 size="sm"
-                                variant={isConfigured ? "default" : "secondary"}
+                                variant={isConfigured ? "primary" : "secondary"}
                                 onClick={() => void onSync(t.id)}
                                 disabled={!isConfigured || syncingId === t.id}
                                 isLoading={syncingId === t.id}
