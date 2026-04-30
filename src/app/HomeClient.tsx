@@ -364,7 +364,7 @@ export default function HomeClient() {
   const onDisconnect = async () => {
     await fetch("/api/basecamp/disconnect", { method: "POST" });
     setBcStatus({ connected: false });
-    setProjects([]);
+    queryClient.removeQueries({ queryKey: ["basecamp-projects"] });
     setSelectedProjectId(null);
     setProjectColumns([]);
     setProjectPeople([]);
@@ -775,7 +775,7 @@ const handleConfigCancel = () => {
                             ) : (
                               <Button
                                 size="sm"
-                                variant={isConfigured ? "default" : "secondary"}
+                                variant={isConfigured ? "primary" : "secondary"}
                                 onClick={() => void onSync(t.id)}
                                 disabled={!isConfigured || syncingId === t.id}
                                 isLoading={syncingId === t.id}
