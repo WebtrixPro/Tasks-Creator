@@ -364,7 +364,7 @@ export default function HomeClient() {
   const onDisconnect = async () => {
     await fetch("/api/basecamp/disconnect", { method: "POST" });
     setBcStatus({ connected: false });
-    setProjects([]);
+    queryClient.removeQueries({ queryKey: ["basecamp-projects"] });
     setSelectedProjectId(null);
     setProjectColumns([]);
     setProjectPeople([]);
