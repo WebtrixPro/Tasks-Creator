@@ -194,16 +194,16 @@ export function TasksClient() {
     setIsSyncing(true);
     try {
       // Find the bucket ID from the selected project
-      const bcProject = Array.isArray(basecampProjects) ? basecampProjects.find(p => String(p.id) === selectedBasecampProject) : undefined;
-      const cardTable = bcProject?.dock?.find(d => d.name === "card_table");
+      const projectsList = Array.isArray(basecampProjects) ? basecampProjects : [];
+      const bcProject = projectsList.find(p => p.id === selectedBasecampProject);
       
-      if (!cardTable) {
+      if (!bcProject?.cardTable) {
         throw new Error("Card Table not found in selected project");
       }
 
       await syncTask(taskToSync.id, {
         columnListId: selectedColumn,
-        bucketId: String(bcProject!.id),
+        bucketId: bcProject.id,
       });
 
       setSyncDialogOpen(false);
@@ -884,7 +884,7 @@ export function TasksClient() {
                 }}
                 options={[
                   { value: "", label: "Select a project..." },
-                  ...(Array.isArray(basecampProjects) ? basecampProjects.map((p) => ({ value: String(p.id), label: p.name })) : []),
+                  ...(Array.isArray(basecampProjects) ? basecampProjects.map((p) => ({ value: p.id, label: p.name })) : []),
                 ]}
                 placeholder="Select project"
                 disabled={bcProjectsLoading}

@@ -338,17 +338,17 @@ export function useBasecampStatus() {
 }
 
 export type BasecampProject = {
-  id: number;
+  id: string;
   name: string;
   description: string;
-  app_url: string;
-  dock: Array<{
+  appUrl: string;
+  cardTable?: {
     id: number;
     title: string;
     name: string;
     enabled: boolean;
     url: string;
-  }>;
+  };
 };
 
 export type BasecampPerson = {
