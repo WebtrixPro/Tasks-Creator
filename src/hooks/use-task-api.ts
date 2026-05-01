@@ -360,13 +360,13 @@ export type BasecampPerson = {
 
 export function useBasecampProjects() {
   const { connected } = useBasecampStatus();
-  const { data, error, isLoading, mutate } = useSWR<BasecampProject[]>(
+  const { data, error, isLoading, mutate } = useSWR<{ projects: BasecampProject[] }>(
     connected ? "/api/basecamp/projects" : null,
     fetcher
   );
 
   return {
-    projects: data || [],
+    projects: data?.projects || [],
     isLoading,
     error,
     mutate,
