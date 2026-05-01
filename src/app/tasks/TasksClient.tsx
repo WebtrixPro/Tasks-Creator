@@ -1,7 +1,18 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useTasks, useProjects, useMembers, useStats, useTrash } from "@/hooks/use-task-api";
+import { 
+  useTasks, 
+  useProjects, 
+  useMembers, 
+  useStats, 
+  useTrash,
+  useBasecampStatus,
+  useBasecampProjects,
+  useBasecampColumns,
+  useSyncTask,
+  useImportFromBasecamp,
+} from "@/hooks/use-task-api";
 import { TaskDialog } from "@/components/task-manager/TaskDialog";
 import { ActivityFeed } from "@/components/task-manager/ActivityFeed";
 import { Button } from "@/components/ui/button";
@@ -30,6 +41,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   CheckSquareIcon,
   ClockIcon,
@@ -37,6 +49,11 @@ import {
   RefreshIcon,
   FolderIcon,
   UserIcon,
+  CloudArrowUpIcon,
+  DownloadIcon,
+  UsersIcon,
+  CheckCircleIcon,
+  LinkIcon,
 } from "@/components/ui/icons";
 import { formatDistanceToNow } from "date-fns";
 import type { Task, CreateTaskInput, UpdateTaskInput, TaskFilters } from "@/types/task";
@@ -85,6 +102,14 @@ export function TasksClient() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  
+  // Basecamp sync state
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [taskToSync, setTaskToSync] = useState<Task | null>(null);
+  const [selectedBasecampProject, setSelectedBasecampProject] = useState<string>("");
+  const [selectedColumn, setSelectedColumn] = useState<string>("");
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   // Data hooks
   const { 
@@ -99,10 +124,17 @@ export function TasksClient() {
     mutate: mutateTasks 
   } = useTasks({ ...filters, search: searchQuery || undefined });
   
-  const { projects, isLoading: projectsLoading } = useProjects();
-  const { members, isLoading: membersLoading } = useMembers();
+  const { projects, isLoading: projectsLoading, mutate: mutateProjects } = useProjects();
+  const { members, isLoading: membersLoading, mutate: mutateMembers } = useMembers();
   const { stats, isLoading: statsLoading } = useStats();
   const { trashedItems, restoreItem, permanentDelete, emptyTrash, mutate: mutateTrash } = useTrash();
+  
+  // Basecamp hooks
+  const { connected: basecampConnected } = useBasecampStatus();
+  const { projects: basecampProjects, isLoading: bcProjectsLoading } = useBasecampProjects();
+  const { columns: basecampColumns, isLoading: bcColumnsLoading } = useBasecampColumns(selectedBasecampProject);
+  const { syncTask } = useSyncTask();
+  const { importProjects, importMembers } = useImportFromBasecamp();
 
   // Handlers
   const handleCreateTask = useCallback(async (data: CreateTaskInput) => {
@@ -148,6 +180,66 @@ export function TasksClient() {
     await permanentDelete("task", id);
   }, [permanentDelete]);
 
+  // Basecamp sync handlers
+  const openSyncDialog = (task: Task) => {
+    setTaskToSync(task);
+    setSelectedBasecampProject("");
+    setSelectedColumn("");
+    setSyncDialogOpen(true);
+  };
+
+  const handleSyncTask = useCallback(async () => {
+    if (!taskToSync || !selectedBasecampProject || !selectedColumn) return;
+    
+    setIsSyncing(true);
+    try {
+      // Find the bucket ID from the selected project
+      const bcProject = basecampProjects.find(p => String(p.id) === selectedBasecampProject);
+      const cardTable = bcProject?.dock?.find(d => d.name === "card_table");
+      
+      if (!cardTable) {
+        throw new Error("Card Table not found in selected project");
+      }
+
+      await syncTask(taskToSync.id, {
+        columnListId: selectedColumn,
+        bucketId: String(bcProject!.id),
+      });
+
+      setSyncDialogOpen(false);
+      setTaskToSync(null);
+      mutateTasks();
+    } catch (error) {
+      console.error("Sync failed:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [taskToSync, selectedBasecampProject, selectedColumn, basecampProjects, syncTask, mutateTasks]);
+
+  const handleImportProjects = useCallback(async () => {
+    setIsImporting(true);
+    try {
+      await importProjects();
+      mutateProjects();
+    } catch (error) {
+      console.error("Import projects failed:", error);
+    } finally {
+      setIsImporting(false);
+    }
+  }, [importProjects, mutateProjects]);
+
+  const handleImportMembers = useCallback(async () => {
+    setIsImporting(true);
+    try {
+      await importMembers("");
+      mutateMembers();
+    } catch (error) {
+      console.error("Import members failed:", error);
+    } finally {
+      setIsImporting(false);
+    }
+  }, [importMembers, mutateMembers]);
+
   const toggleTaskSelection = (taskId: string) => {
     setSelectedTasks(prev => {
       const newSet = new Set(prev);
@@ -189,19 +281,70 @@ export function TasksClient() {
     <div className="min-h-screen bg-[var(--background)]">
       <div className="container mx-auto py-8 px-4">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Task Manager</h1>
-            <p className="text-[var(--muted-foreground)] mt-1">
-              Comprehensive CRUD with projects, team members, and activity tracking
-            </p>
+        <div className="flex flex-col gap-4 mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Task Manager</h1>
+              <p className="text-[var(--muted-foreground)] mt-1">
+                Comprehensive CRUD with projects, team members, and activity tracking
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {basecampConnected ? (
+                <Badge variant="success" className="flex items-center gap-1.5">
+                  <CheckCircleIcon className="h-3.5 w-3.5" />
+                  Basecamp Connected
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="flex items-center gap-1.5">
+                  <ExclamationIcon className="h-3.5 w-3.5" />
+                  Basecamp Disconnected
+                </Badge>
+              )}
+              <Button onClick={openCreateDialog}>
+                <svg className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                New Task
+              </Button>
+            </div>
           </div>
-          <Button onClick={openCreateDialog}>
-            <svg className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New Task
-          </Button>
+
+          {/* Basecamp Integration Actions */}
+          {basecampConnected && (
+            <div className="flex items-center gap-2 p-3 bg-[var(--secondary)]/50 rounded-lg border border-[var(--border)]">
+              <span className="text-sm font-medium mr-2">Basecamp Sync:</span>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleImportProjects}
+                disabled={isImporting}
+              >
+                {isImporting ? (
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : (
+                  <DownloadIcon className="mr-2 h-4 w-4" />
+                )}
+                Import Projects
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleImportMembers}
+                disabled={isImporting}
+              >
+                {isImporting ? (
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : (
+                  <UsersIcon className="mr-2 h-4 w-4" />
+                )}
+                Import Team Members
+              </Button>
+              <span className="ml-auto text-xs text-[var(--muted-foreground)]">
+                {basecampProjects.length} Basecamp projects available
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Stats Cards */}
@@ -440,6 +583,7 @@ export function TasksClient() {
                       <span className="w-20 text-center">Priority</span>
                       <span className="w-32">Project</span>
                       <span className="w-32">Assignee</span>
+                      <span className="w-20 text-center">Sync</span>
                       <span className="w-24 text-right">Due Date</span>
                       <span className="w-10"></span>
                     </div>
@@ -502,6 +646,22 @@ export function TasksClient() {
                             )}
                           </div>
 
+                          <div className="w-20 flex justify-center">
+                            {task.basecampCardId ? (
+                              <Badge variant="success" className="flex items-center gap-1">
+                                <LinkIcon className="h-3 w-3" />
+                                <span className="text-xs">Synced</span>
+                              </Badge>
+                            ) : task.syncStatus === "failed" ? (
+                              <Badge variant="danger" className="flex items-center gap-1">
+                                <ExclamationIcon className="h-3 w-3" />
+                                <span className="text-xs">Failed</span>
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-[var(--muted-foreground)]">Local</span>
+                            )}
+                          </div>
+
                           <div className="w-24 text-right">
                             {task.dueDate ? (
                               <span className="text-sm">
@@ -527,6 +687,18 @@ export function TasksClient() {
                                 </svg>
                                 Edit
                               </DropdownMenuItem>
+                              {basecampConnected && !task.basecampCardId && (
+                                <DropdownMenuItem onClick={() => openSyncDialog(task)}>
+                                  <CloudArrowUpIcon className="mr-2 h-4 w-4" />
+                                  Sync to Basecamp
+                                </DropdownMenuItem>
+                              )}
+                              {task.basecampCardId && (
+                                <DropdownMenuItem disabled>
+                                  <CheckCircleIcon className="mr-2 h-4 w-4 text-green-500" />
+                                  Already Synced
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 destructive
@@ -687,6 +859,102 @@ export function TasksClient() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Sync to Basecamp Dialog */}
+      <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CloudArrowUpIcon className="h-5 w-5 text-[var(--primary)]" />
+              Sync to Basecamp
+            </DialogTitle>
+            <DialogDescription>
+              Sync &quot;{taskToSync?.title}&quot; to a Basecamp project card table.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Basecamp Project</label>
+              <Select
+                value={selectedBasecampProject}
+                onValueChange={(value) => {
+                  setSelectedBasecampProject(value);
+                  setSelectedColumn("");
+                }}
+                options={[
+                  { value: "", label: "Select a project..." },
+                  ...basecampProjects.map((p) => ({ value: String(p.id), label: p.name })),
+                ]}
+                placeholder="Select project"
+                disabled={bcProjectsLoading}
+              />
+            </div>
+
+            {selectedBasecampProject && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Card Table Column</label>
+                {bcColumnsLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
+                    Loading columns...
+                  </div>
+                ) : basecampColumns.length > 0 ? (
+                  <Select
+                    value={selectedColumn}
+                    onValueChange={setSelectedColumn}
+                    options={[
+                      { value: "", label: "Select a column..." },
+                      ...basecampColumns.map((c) => ({ value: c.id, label: c.title })),
+                    ]}
+                    placeholder="Select column"
+                  />
+                ) : (
+                  <p className="text-sm text-[var(--muted-foreground)]">
+                    No Card Table found in this project. Please enable Card Table in Basecamp first.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {taskToSync && (
+              <div className="rounded-lg border border-[var(--border)] p-3 bg-[var(--secondary)]/30">
+                <h4 className="font-medium text-sm mb-2">Task Details</h4>
+                <div className="space-y-1 text-sm text-[var(--muted-foreground)]">
+                  <p><span className="font-medium">Title:</span> {taskToSync.title}</p>
+                  <p><span className="font-medium">Priority:</span> {taskToSync.priority}</p>
+                  <p><span className="font-medium">Status:</span> {taskToSync.status.replace("_", " ")}</p>
+                  {taskToSync.dueDate && (
+                    <p><span className="font-medium">Due:</span> {new Date(taskToSync.dueDate).toLocaleDateString()}</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSyncDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSyncTask}
+              disabled={!selectedBasecampProject || !selectedColumn || isSyncing}
+            >
+              {isSyncing ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <CloudArrowUpIcon className="mr-2 h-4 w-4" />
+                  Sync Task
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

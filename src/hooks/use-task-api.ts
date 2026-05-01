@@ -320,3 +320,125 @@ export function useTrash(type?: string) {
     mutate,
   };
 }
+
+// ===== BASECAMP HOOKS =====
+export function useBasecampStatus() {
+  const { data, error, isLoading, mutate } = useSWR<{ connected: boolean; accountId?: string }>(
+    "/api/basecamp/status",
+    fetcher
+  );
+
+  return {
+    connected: data?.connected ?? false,
+    accountId: data?.accountId,
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
+export type BasecampProject = {
+  id: number;
+  name: string;
+  description: string;
+  app_url: string;
+  dock: Array<{
+    id: number;
+    title: string;
+    name: string;
+    enabled: boolean;
+    url: string;
+  }>;
+};
+
+export type BasecampPerson = {
+  id: number;
+  name: string;
+  email_address: string;
+  avatar_url: string;
+};
+
+export function useBasecampProjects() {
+  const { connected } = useBasecampStatus();
+  const { data, error, isLoading, mutate } = useSWR<BasecampProject[]>(
+    connected ? "/api/basecamp/projects" : null,
+    fetcher
+  );
+
+  return {
+    projects: data || [],
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
+export function useBasecampPeople(projectId: string | null) {
+  const { connected } = useBasecampStatus();
+  const { data, error, isLoading } = useSWR<BasecampPerson[]>(
+    connected && projectId ? `/api/basecamp/projects/${projectId}/people` : null,
+    fetcher
+  );
+
+  return {
+    people: data || [],
+    isLoading,
+    error,
+  };
+}
+
+export function useBasecampColumns(projectId: string | null) {
+  const { connected } = useBasecampStatus();
+  const { data, error, isLoading } = useSWR<{ id: string; title: string }[]>(
+    connected && projectId ? `/api/basecamp/projects/${projectId}/columns` : null,
+    fetcher
+  );
+
+  return {
+    columns: data || [],
+    isLoading,
+    error,
+  };
+}
+
+export function useSyncTask() {
+  const syncTask = useCallback(async (
+    taskId: string,
+    options: { columnListId: string; bucketId: string; assigneeId?: string }
+  ) => {
+    const res = await fetch(`/api/tasks/${taskId}/sync`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(options),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error);
+    return result;
+  }, []);
+
+  return { syncTask };
+}
+
+export function useImportFromBasecamp() {
+  const importProjects = useCallback(async () => {
+    const res = await fetch("/api/v2/projects/import-basecamp", { method: "POST" });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error);
+    swrMutate((key) => typeof key === "string" && key.startsWith("/api/v2/projects"));
+    return result;
+  }, []);
+
+  const importMembers = useCallback(async (projectId: string) => {
+    const res = await fetch(`/api/v2/members/import-basecamp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId }),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error);
+    swrMutate((key) => typeof key === "string" && key.startsWith("/api/v2/members"));
+    return result;
+  }, []);
+
+  return { importProjects, importMembers };
+}

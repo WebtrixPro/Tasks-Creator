@@ -26,6 +26,16 @@ export function buildPagination(page: number, limit: number) {
   return { skip, take: limit }
 }
 
+// Generic orderBy builder for Prisma queries
+export function buildOrderBy(
+  sortBy?: string,
+  sortOrder?: 'asc' | 'desc'
+): Record<string, 'asc' | 'desc'> {
+  const order = sortOrder ?? 'desc'
+  const field = sortBy ?? 'createdAt'
+  return { [field]: order }
+}
+
 export function buildPaginationResponse<T>(
   data: T[],
   total: number,
