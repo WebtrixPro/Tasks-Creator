@@ -2,21 +2,8 @@
 
 import { useActivity } from "@/hooks/use-task-api";
 import { formatDistanceToNow } from "date-fns";
-import { 
-  Activity, 
-  Plus, 
-  Pencil, 
-  Trash2, 
-  RotateCcw, 
-  UserPlus, 
-  UserMinus,
-  FolderPlus,
-  MessageSquare,
-  ArrowRight
-} from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { ClockIcon, PlusIcon, PencilIcon, TrashIcon, RefreshIcon, UserIcon } from "@/components/ui/icons";
 
 interface ActivityFeedProps {
   projectId?: string;
@@ -26,33 +13,41 @@ interface ActivityFeedProps {
   className?: string;
 }
 
-const ACTION_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  created: Plus,
-  updated: Pencil,
-  deleted: Trash2,
-  restored: RotateCcw,
-  member_added: UserPlus,
-  member_removed: UserMinus,
-  project_created: FolderPlus,
-  comment_added: MessageSquare,
-  status_changed: ArrowRight,
-  assigned: UserPlus,
-  unassigned: UserMinus,
-};
-
 const ACTION_COLORS: Record<string, string> = {
-  created: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  created: "bg-[var(--success)]/15 text-[var(--success)]",
   updated: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  deleted: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  deleted: "bg-[var(--destructive)]/15 text-[var(--destructive)]",
   restored: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   member_added: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   member_removed: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
   project_created: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
   comment_added: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
-  status_changed: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  status_changed: "bg-[var(--warning)]/15 text-[var(--warning)]",
   assigned: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
   unassigned: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
 };
+
+function getActionIcon(action: string) {
+  switch (action) {
+    case "created":
+    case "project_created":
+      return PlusIcon;
+    case "updated":
+    case "status_changed":
+      return PencilIcon;
+    case "deleted":
+      return TrashIcon;
+    case "restored":
+      return RefreshIcon;
+    case "member_added":
+    case "member_removed":
+    case "assigned":
+    case "unassigned":
+      return UserIcon;
+    default:
+      return ClockIcon;
+  }
+}
 
 function formatActivityMessage(activity: {
   action: string;
@@ -102,7 +97,7 @@ export function ActivityFeed({
   entityType,
   entityId,
   limit = 50,
-  className,
+  className = "",
 }: ActivityFeedProps) {
   const { activities, isLoading, error } = useActivity({
     projectId,
@@ -113,13 +108,13 @@ export function ActivityFeed({
 
   if (isLoading) {
     return (
-      <div className={cn("space-y-4 p-4", className)}>
+      <div className={`space-y-4 p-4 ${className}`}>
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex items-start gap-3">
-            <Skeleton className="h-8 w-8 rounded-full" />
+          <div key={i} className="flex items-start gap-3 animate-pulse">
+            <div className="h-8 w-8 rounded-full bg-[var(--secondary)]" />
             <div className="flex-1 space-y-2">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-1/4" />
+              <div className="h-4 w-3/4 rounded bg-[var(--secondary)]" />
+              <div className="h-3 w-1/4 rounded bg-[var(--secondary)]" />
             </div>
           </div>
         ))}
@@ -129,7 +124,7 @@ export function ActivityFeed({
 
   if (error) {
     return (
-      <div className={cn("p-4 text-center text-muted-foreground", className)}>
+      <div className={`p-4 text-center text-[var(--muted-foreground)] ${className}`}>
         Failed to load activity feed
       </div>
     );
@@ -137,30 +132,30 @@ export function ActivityFeed({
 
   if (!activities || activities.length === 0) {
     return (
-      <div className={cn("p-8 text-center", className)}>
-        <Activity className="mx-auto h-12 w-12 text-muted-foreground/50" />
-        <p className="mt-2 text-sm text-muted-foreground">No activity yet</p>
+      <div className={`p-8 text-center ${className}`}>
+        <ClockIcon className="mx-auto h-12 w-12 text-[var(--muted-foreground)] opacity-50" />
+        <p className="mt-2 text-sm text-[var(--muted-foreground)]">No activity yet</p>
       </div>
     );
   }
 
   return (
-    <ScrollArea className={cn("h-[400px]", className)}>
+    <ScrollArea className={`h-[400px] ${className}`}>
       <div className="space-y-4 p-4">
         {activities.map((activity) => {
-          const IconComponent = ACTION_ICONS[activity.action] || Activity;
-          const colorClass = ACTION_COLORS[activity.action] || "bg-gray-100 text-gray-700";
+          const IconComponent = getActionIcon(activity.action);
+          const colorClass = ACTION_COLORS[activity.action] || "bg-[var(--secondary)] text-[var(--muted-foreground)]";
 
           return (
             <div key={activity.id} className="flex items-start gap-3">
-              <div className={cn("rounded-full p-2", colorClass)}>
+              <div className={`rounded-full p-2 ${colorClass}`}>
                 <IconComponent className="h-4 w-4" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-foreground">
+                <p className="text-sm">
                   {formatActivityMessage(activity)}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-[var(--muted-foreground)] mt-1">
                   {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
                 </p>
               </div>

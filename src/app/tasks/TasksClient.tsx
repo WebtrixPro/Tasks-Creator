@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -31,51 +31,47 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { 
-  Plus, 
-  Search, 
-  Filter, 
-  MoreHorizontal, 
-  Pencil, 
-  Trash2, 
-  RotateCcw, 
-  CheckSquare,
-  Clock,
-  AlertCircle,
-  CheckCircle2,
-  Circle,
-  BarChart3,
-  Users,
-  FolderKanban,
-  Activity,
-  Loader2,
-  Archive
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+  CheckSquareIcon,
+  ClockIcon,
+  ExclamationIcon,
+  RefreshIcon,
+  FolderIcon,
+  UserIcon,
+} from "@/components/ui/icons";
 import { formatDistanceToNow } from "date-fns";
 import type { Task, CreateTaskInput, UpdateTaskInput, TaskFilters } from "@/types/task";
 
-const PRIORITY_COLORS: Record<string, string> = {
-  low: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-  medium: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
-  high: "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300",
-  urgent: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
+const PRIORITY_BADGE_VARIANT: Record<string, "default" | "success" | "warning" | "danger" | "outline"> = {
+  low: "outline",
+  medium: "default",
+  high: "warning",
+  urgent: "danger",
 };
 
-const STATUS_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  pending: Circle,
-  in_progress: Clock,
-  review: AlertCircle,
-  completed: CheckCircle2,
-  blocked: AlertCircle,
+const STATUS_BADGE_VARIANT: Record<string, "default" | "success" | "warning" | "danger" | "outline"> = {
+  pending: "outline",
+  in_progress: "default",
+  review: "warning",
+  completed: "success",
+  blocked: "danger",
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  pending: "text-slate-500",
-  in_progress: "text-blue-500",
-  review: "text-amber-500",
-  completed: "text-green-500",
-  blocked: "text-red-500",
-};
+const STATUS_OPTIONS = [
+  { value: "all", label: "All Status" },
+  { value: "pending", label: "Pending" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "review", label: "In Review" },
+  { value: "completed", label: "Completed" },
+  { value: "blocked", label: "Blocked" },
+];
+
+const PRIORITY_OPTIONS = [
+  { value: "all", label: "All Priority" },
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "urgent", label: "Urgent" },
+];
 
 export function TasksClient() {
   // Filters state
@@ -184,19 +180,26 @@ export function TasksClient() {
 
   const isLoading = tasksLoading || projectsLoading || membersLoading;
 
+  const projectOptions = [
+    { value: "all", label: "All Projects" },
+    ...projects.map((p) => ({ value: p.id, label: p.name })),
+  ];
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[var(--background)]">
       <div className="container mx-auto py-8 px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Task Manager</h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-[var(--muted-foreground)] mt-1">
               Comprehensive CRUD with projects, team members, and activity tracking
             </p>
           </div>
-          <Button onClick={openCreateDialog} size="lg">
-            <Plus className="mr-2 h-5 w-5" />
+          <Button onClick={openCreateDialog}>
+            <svg className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
             New Task
           </Button>
         </div>
@@ -206,13 +209,17 @@ export function TasksClient() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
-              <CheckSquare className="h-4 w-4 text-muted-foreground" />
+              <CheckSquareIcon className="h-4 w-4 text-[var(--muted-foreground)]" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {statsLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats?.tasks?.total || 0}
+                {statsLoading ? (
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
+                ) : (
+                  stats?.tasks?.total || 0
+                )}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-[var(--muted-foreground)]">
                 {stats?.tasks?.completed || 0} completed
               </p>
             </CardContent>
@@ -221,13 +228,17 @@ export function TasksClient() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Projects</CardTitle>
-              <FolderKanban className="h-4 w-4 text-muted-foreground" />
+              <FolderIcon className="h-4 w-4 text-[var(--muted-foreground)]" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {statsLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats?.projects?.total || 0}
+                {statsLoading ? (
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
+                ) : (
+                  stats?.projects?.total || 0
+                )}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-[var(--muted-foreground)]">
                 {stats?.projects?.active || 0} active
               </p>
             </CardContent>
@@ -236,13 +247,17 @@ export function TasksClient() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Team Members</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <UserIcon className="h-4 w-4 text-[var(--muted-foreground)]" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {statsLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats?.members?.total || 0}
+                {statsLoading ? (
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
+                ) : (
+                  stats?.members?.total || 0
+                )}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-[var(--muted-foreground)]">
                 {stats?.members?.active || 0} active
               </p>
             </CardContent>
@@ -251,13 +266,17 @@ export function TasksClient() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <ClockIcon className="h-4 w-4 text-[var(--muted-foreground)]" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {statsLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : stats?.tasks?.inProgress || 0}
+                {statsLoading ? (
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
+                ) : (
+                  stats?.tasks?.inProgress || 0
+                )}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-[var(--muted-foreground)]">
                 {stats?.tasks?.overdue || 0} overdue
               </p>
             </CardContent>
@@ -271,7 +290,7 @@ export function TasksClient() {
             <TabsTrigger value="trash">
               Trash
               {trashedItems && trashedItems.length > 0 && (
-                <Badge variant="secondary" className="ml-2">
+                <Badge variant="default" className="ml-2">
                   {trashedItems.length}
                 </Badge>
               )}
@@ -286,7 +305,14 @@ export function TasksClient() {
               <CardContent className="pt-6">
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <svg 
+                      className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
                     <Input
                       placeholder="Search tasks..."
                       value={searchQuery}
@@ -298,63 +324,37 @@ export function TasksClient() {
                   <Select
                     value={filters.status || "all"}
                     onValueChange={(value) => setFilters({ ...filters, status: value === "all" ? undefined : value })}
-                  >
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="review">In Review</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="blocked">Blocked</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    options={STATUS_OPTIONS}
+                    placeholder="Status"
+                    className="w-[150px]"
+                  />
 
                   <Select
                     value={filters.priority || "all"}
                     onValueChange={(value) => setFilters({ ...filters, priority: value === "all" ? undefined : value })}
-                  >
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="Priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Priority</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    options={PRIORITY_OPTIONS}
+                    placeholder="Priority"
+                    className="w-[150px]"
+                  />
 
                   <Select
                     value={filters.projectId || "all"}
                     onValueChange={(value) => setFilters({ ...filters, projectId: value === "all" ? undefined : value })}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Project" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Projects</SelectItem>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    options={projectOptions}
+                    placeholder="Project"
+                    className="w-[180px]"
+                  />
                 </div>
 
                 {/* Bulk Actions */}
                 {selectedTasks.size > 0 && (
-                  <div className="mt-4 flex items-center gap-4 p-3 bg-muted rounded-lg">
+                  <div className="mt-4 flex items-center gap-4 p-3 bg-[var(--secondary)] rounded-lg">
                     <span className="text-sm font-medium">
                       {selectedTasks.size} task{selectedTasks.size > 1 ? "s" : ""} selected
                     </span>
                     <Separator orientation="vertical" className="h-6" />
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+                      <DropdownMenuTrigger>
                         <Button variant="outline" size="sm">
                           Change Status
                         </Button>
@@ -379,7 +379,9 @@ export function TasksClient() {
                       size="sm"
                       onClick={() => setBulkDeleteDialogOpen(true)}
                     >
-                      <Trash2 className="mr-2 h-4 w-4" />
+                      <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
                       Delete Selected
                     </Button>
                     <Button 
@@ -399,7 +401,7 @@ export function TasksClient() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle>Tasks</CardTitle>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-[var(--muted-foreground)]">
                     {pagination?.total || 0} total
                   </span>
                 </div>
@@ -407,26 +409,28 @@ export function TasksClient() {
               <CardContent>
                 {isLoading ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
                   </div>
                 ) : tasks.length === 0 ? (
                   <div className="text-center py-12">
-                    <CheckSquare className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                    <CheckSquareIcon className="mx-auto h-12 w-12 text-[var(--muted-foreground)] opacity-50" />
                     <h3 className="mt-4 text-lg font-semibold">No tasks found</h3>
-                    <p className="text-muted-foreground mt-2">
+                    <p className="text-[var(--muted-foreground)] mt-2">
                       {searchQuery || Object.keys(filters).length > 0
                         ? "Try adjusting your filters"
                         : "Create your first task to get started"}
                     </p>
                     <Button onClick={openCreateDialog} className="mt-4">
-                      <Plus className="mr-2 h-4 w-4" />
+                      <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
                       Create Task
                     </Button>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {/* Header row */}
-                    <div className="flex items-center gap-4 px-4 py-2 text-sm font-medium text-muted-foreground border-b">
+                    <div className="flex items-center gap-4 px-4 py-2 text-sm font-medium text-[var(--muted-foreground)] border-b border-[var(--border)]">
                       <Checkbox
                         checked={selectedTasks.size === tasks.length && tasks.length > 0}
                         onCheckedChange={toggleAllTasks}
@@ -442,99 +446,104 @@ export function TasksClient() {
 
                     {/* Task rows */}
                     <ScrollArea className="h-[500px]">
-                      {tasks.map((task) => {
-                        const StatusIcon = STATUS_ICONS[task.status] || Circle;
-                        return (
-                          <div
-                            key={task.id}
-                            className={cn(
-                              "flex items-center gap-4 px-4 py-3 hover:bg-muted/50 rounded-lg transition-colors",
-                              selectedTasks.has(task.id) && "bg-muted"
+                      {tasks.map((task) => (
+                        <div
+                          key={task.id}
+                          className={`
+                            flex items-center gap-4 px-4 py-3 hover:bg-[var(--secondary)]/50 rounded-lg transition-colors
+                            ${selectedTasks.has(task.id) ? "bg-[var(--secondary)]" : ""}
+                          `}
+                        >
+                          <Checkbox
+                            checked={selectedTasks.has(task.id)}
+                            onCheckedChange={() => toggleTaskSelection(task.id)}
+                          />
+                          
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{task.title}</p>
+                            {task.description && (
+                              <p className="text-sm text-[var(--muted-foreground)] truncate">
+                                {task.description}
+                              </p>
                             )}
-                          >
-                            <Checkbox
-                              checked={selectedTasks.has(task.id)}
-                              onCheckedChange={() => toggleTaskSelection(task.id)}
-                            />
-                            
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{task.title}</p>
-                              {task.description && (
-                                <p className="text-sm text-muted-foreground truncate">
-                                  {task.description}
-                                </p>
-                              )}
-                            </div>
-
-                            <div className="w-24 flex justify-center">
-                              <StatusIcon className={cn("h-5 w-5", STATUS_COLORS[task.status])} />
-                            </div>
-
-                            <div className="w-20 flex justify-center">
-                              <Badge className={cn("capitalize", PRIORITY_COLORS[task.priority])}>
-                                {task.priority}
-                              </Badge>
-                            </div>
-
-                            <div className="w-32 truncate">
-                              {task.project ? (
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className="w-2 h-2 rounded-full"
-                                    style={{ backgroundColor: task.project.color || "#6366f1" }}
-                                  />
-                                  <span className="text-sm truncate">{task.project.name}</span>
-                                </div>
-                              ) : (
-                                <span className="text-sm text-muted-foreground">-</span>
-                              )}
-                            </div>
-
-                            <div className="w-32 truncate">
-                              {task.assignee ? (
-                                <span className="text-sm">{task.assignee.name}</span>
-                              ) : (
-                                <span className="text-sm text-muted-foreground">Unassigned</span>
-                              )}
-                            </div>
-
-                            <div className="w-24 text-right">
-                              {task.dueDate ? (
-                                <span className="text-sm">
-                                  {formatDistanceToNow(new Date(task.dueDate), { addSuffix: true })}
-                                </span>
-                              ) : (
-                                <span className="text-sm text-muted-foreground">-</span>
-                              )}
-                            </div>
-
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => openEditDialog(task)}>
-                                  <Pencil className="mr-2 h-4 w-4" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="text-destructive"
-                                  onClick={() => {
-                                    setTaskToDelete(task);
-                                    setDeleteDialogOpen(true);
-                                  }}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
                           </div>
-                        );
-                      })}
+
+                          <div className="w-24 flex justify-center">
+                            <Badge variant={STATUS_BADGE_VARIANT[task.status] || "outline"}>
+                              {task.status.replace("_", " ")}
+                            </Badge>
+                          </div>
+
+                          <div className="w-20 flex justify-center">
+                            <Badge variant={PRIORITY_BADGE_VARIANT[task.priority] || "outline"}>
+                              {task.priority}
+                            </Badge>
+                          </div>
+
+                          <div className="w-32 truncate">
+                            {task.project ? (
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: task.project.color || "#6366f1" }}
+                                />
+                                <span className="text-sm truncate">{task.project.name}</span>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-[var(--muted-foreground)]">-</span>
+                            )}
+                          </div>
+
+                          <div className="w-32 truncate">
+                            {task.assignee ? (
+                              <span className="text-sm">{task.assignee.name}</span>
+                            ) : (
+                              <span className="text-sm text-[var(--muted-foreground)]">Unassigned</span>
+                            )}
+                          </div>
+
+                          <div className="w-24 text-right">
+                            {task.dueDate ? (
+                              <span className="text-sm">
+                                {formatDistanceToNow(new Date(task.dueDate), { addSuffix: true })}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-[var(--muted-foreground)]">-</span>
+                            )}
+                          </div>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
+                                </svg>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditDialog(task)}>
+                                <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                destructive
+                                onClick={() => {
+                                  setTaskToDelete(task);
+                                  setDeleteDialogOpen(true);
+                                }}
+                              >
+                                <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      ))}
                     </ScrollArea>
                   </div>
                 )}
@@ -567,9 +576,9 @@ export function TasksClient() {
               <CardContent>
                 {!trashedItems || trashedItems.length === 0 ? (
                   <div className="text-center py-12">
-                    <Archive className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                    <FolderIcon className="mx-auto h-12 w-12 text-[var(--muted-foreground)] opacity-50" />
                     <h3 className="mt-4 text-lg font-semibold">Trash is empty</h3>
-                    <p className="text-muted-foreground mt-2">
+                    <p className="text-[var(--muted-foreground)] mt-2">
                       Deleted items will appear here
                     </p>
                   </div>
@@ -578,11 +587,11 @@ export function TasksClient() {
                     {trashedItems.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
+                        className="flex items-center justify-between p-4 border border-[var(--border)] rounded-lg"
                       >
                         <div>
                           <p className="font-medium">{item.title || item.name}</p>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-[var(--muted-foreground)]">
                             {item.type} - Deleted {formatDistanceToNow(new Date(item.deletedAt), { addSuffix: true })}
                           </p>
                         </div>
@@ -592,7 +601,7 @@ export function TasksClient() {
                             size="sm"
                             onClick={() => handleRestoreTask(item.id)}
                           >
-                            <RotateCcw className="mr-2 h-4 w-4" />
+                            <RefreshIcon className="mr-2 h-4 w-4" />
                             Restore
                           </Button>
                           <Button
@@ -600,7 +609,9 @@ export function TasksClient() {
                             size="sm"
                             onClick={() => handlePermanentDelete(item.id)}
                           >
-                            <Trash2 className="mr-2 h-4 w-4" />
+                            <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
                             Delete Forever
                           </Button>
                         </div>
@@ -617,7 +628,7 @@ export function TasksClient() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5" />
+                  <ClockIcon className="h-5 w-5" />
                   Activity Feed
                 </CardTitle>
                 <CardDescription>
@@ -655,7 +666,7 @@ export function TasksClient() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTask}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteTask} destructive>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -672,7 +683,7 @@ export function TasksClient() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBulkDelete}>Delete All</AlertDialogAction>
+            <AlertDialogAction onClick={handleBulkDelete} destructive>Delete All</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

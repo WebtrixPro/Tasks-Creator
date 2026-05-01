@@ -1,17 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogBody } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Loader2 } from "lucide-react";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { Select } from "@/components/ui/select";
 import type { Task, CreateTaskInput, UpdateTaskInput, Project, TeamMember } from "@/types/task";
 
 interface TaskDialogProps {
@@ -59,9 +54,9 @@ export function TaskDialog({
     estimate: "",
     projectId: "",
     assigneeId: "",
-    dueDate: null as Date | null,
-    startDate: null as Date | null,
-    endDate: null as Date | null,
+    dueDate: "",
+    startDate: "",
+    endDate: "",
   });
 
   useEffect(() => {
@@ -76,9 +71,9 @@ export function TaskDialog({
         estimate: task.estimate || "",
         projectId: task.projectId || "",
         assigneeId: task.assigneeId || "",
-        dueDate: task.dueDate ? new Date(task.dueDate) : null,
-        startDate: task.startDate ? new Date(task.startDate) : null,
-        endDate: task.endDate ? new Date(task.endDate) : null,
+        dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : "",
+        startDate: task.startDate ? new Date(task.startDate).toISOString().split("T")[0] : "",
+        endDate: task.endDate ? new Date(task.endDate).toISOString().split("T")[0] : "",
       });
     } else if (mode === "create") {
       setFormData({
@@ -91,9 +86,9 @@ export function TaskDialog({
         estimate: "",
         projectId: projects[0]?.id || "",
         assigneeId: "",
-        dueDate: null,
-        startDate: null,
-        endDate: null,
+        dueDate: "",
+        startDate: "",
+        endDate: "",
       });
     }
   }, [task, mode, open, projects]);
@@ -113,9 +108,9 @@ export function TaskDialog({
         estimate: formData.estimate || undefined,
         projectId: formData.projectId || undefined,
         assigneeId: formData.assigneeId || undefined,
-        dueDate: formData.dueDate?.toISOString(),
-        startDate: formData.startDate?.toISOString(),
-        endDate: formData.endDate?.toISOString(),
+        dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : undefined,
+        startDate: formData.startDate ? new Date(formData.startDate).toISOString() : undefined,
+        endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
       };
 
       await onSubmit(submitData);
@@ -127,250 +122,163 @@ export function TaskDialog({
     }
   };
 
+  const projectOptions = [
+    { value: "", label: "No Project" },
+    ...projects.map((p) => ({ value: p.id, label: p.name })),
+  ];
+
+  const memberOptions = [
+    { value: "", label: "Unassigned" },
+    ...members.map((m) => ({ value: m.id, label: m.name })),
+  ];
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onClose={() => onOpenChange(false)}>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             {mode === "create" ? "Create New Task" : "Edit Task"}
           </DialogTitle>
-          <DialogDescription>
-            {mode === "create" 
-              ? "Fill in the details below to create a new task." 
-              : "Update the task details below."}
-          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Title */}
-          <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
-            <Input
-              id="title"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Enter task title"
-              required
-            />
-          </div>
-
-          {/* Project & Assignee Row */}
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit}>
+          <DialogBody className="space-y-6 max-h-[60vh] overflow-y-auto">
+            {/* Title */}
             <div className="space-y-2">
-              <Label htmlFor="project">Project</Label>
-              <Select
-                value={formData.projectId}
-                onValueChange={(value) => setFormData({ ...formData, projectId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select project" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">No Project</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: project.color || "#6366f1" }}
-                        />
-                        {project.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="title" required>Title</Label>
+              <Input
+                id="title"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Enter task title"
+                required
+              />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="assignee">Assignee</Label>
-              <Select
-                value={formData.assigneeId}
-                onValueChange={(value) => setFormData({ ...formData, assigneeId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select assignee" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
-                  {members.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+            {/* Project & Assignee Row */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="project">Project</Label>
+                <Select
+                  value={formData.projectId}
+                  onValueChange={(value) => setFormData({ ...formData, projectId: value })}
+                  options={projectOptions}
+                  placeholder="Select project"
+                />
+              </div>
 
-          {/* Priority & Status Row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="priority">Priority</Label>
-              <Select
-                value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORITIES.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label htmlFor="assignee">Assignee</Label>
+                <Select
+                  value={formData.assigneeId}
+                  onValueChange={(value) => setFormData({ ...formData, assigneeId: value })}
+                  options={memberOptions}
+                  placeholder="Select assignee"
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUSES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+            {/* Priority & Status Row */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="priority">Priority</Label>
+                <Select
+                  value={formData.priority}
+                  onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                  options={PRIORITIES}
+                />
+              </div>
 
-          {/* Estimate */}
-          <div className="space-y-2">
-            <Label htmlFor="estimate">Estimate</Label>
-            <Input
-              id="estimate"
-              value={formData.estimate}
-              onChange={(e) => setFormData({ ...formData, estimate: e.target.value })}
-              placeholder="e.g., 2h, 1d, 3 points"
-            />
-          </div>
-
-          {/* Dates Row */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Due Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !formData.dueDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.dueDate ? format(formData.dueDate, "PPP") : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.dueDate || undefined}
-                    onSelect={(date) => setFormData({ ...formData, dueDate: date || null })}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  options={STATUSES}
+                />
+              </div>
             </div>
 
+            {/* Estimate */}
             <div className="space-y-2">
-              <Label>Start Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !formData.startDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.startDate ? format(formData.startDate, "PPP") : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.startDate || undefined}
-                    onSelect={(date) => setFormData({ ...formData, startDate: date || null })}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <Label htmlFor="estimate">Estimate</Label>
+              <Input
+                id="estimate"
+                value={formData.estimate}
+                onChange={(e) => setFormData({ ...formData, estimate: e.target.value })}
+                placeholder="e.g., 2h, 1d, 3 points"
+              />
             </div>
 
-            <div className="space-y-2">
-              <Label>End Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !formData.endDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.endDate ? format(formData.endDate, "PPP") : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.endDate || undefined}
-                    onSelect={(date) => setFormData({ ...formData, endDate: date || null })}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+            {/* Dates Row */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="dueDate">Due Date</Label>
+                <Input
+                  id="dueDate"
+                  type="date"
+                  value={formData.dueDate}
+                  onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Start Date</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={formData.startDate}
+                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="endDate">End Date</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={formData.endDate}
+                  onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                />
+              </div>
             </div>
-          </div>
 
-          {/* User Story */}
-          <div className="space-y-2">
-            <Label htmlFor="userStory">User Story</Label>
-            <Textarea
-              id="userStory"
-              value={formData.userStory}
-              onChange={(e) => setFormData({ ...formData, userStory: e.target.value })}
-              placeholder="As a [user], I want [goal] so that [benefit]"
-              rows={2}
-            />
-          </div>
+            {/* User Story */}
+            <div className="space-y-2">
+              <Label htmlFor="userStory">User Story</Label>
+              <Textarea
+                id="userStory"
+                value={formData.userStory}
+                onChange={(e) => setFormData({ ...formData, userStory: e.target.value })}
+                placeholder="As a [user], I want [goal] so that [benefit]"
+                rows={2}
+              />
+            </div>
 
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Detailed description of the task"
-              rows={3}
-            />
-          </div>
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Detailed description of the task"
+                rows={3}
+              />
+            </div>
 
-          {/* Acceptance Criteria */}
-          <div className="space-y-2">
-            <Label htmlFor="acceptanceCriteria">Acceptance Criteria</Label>
-            <Textarea
-              id="acceptanceCriteria"
-              value={formData.acceptanceCriteria}
-              onChange={(e) => setFormData({ ...formData, acceptanceCriteria: e.target.value })}
-              placeholder="List the criteria that must be met for this task to be considered complete"
-              rows={3}
-            />
-          </div>
+            {/* Acceptance Criteria */}
+            <div className="space-y-2">
+              <Label htmlFor="acceptanceCriteria">Acceptance Criteria</Label>
+              <Textarea
+                id="acceptanceCriteria"
+                value={formData.acceptanceCriteria}
+                onChange={(e) => setFormData({ ...formData, acceptanceCriteria: e.target.value })}
+                placeholder="List the criteria that must be met for this task to be considered complete"
+                rows={3}
+              />
+            </div>
+          </DialogBody>
 
           <DialogFooter>
             <Button
@@ -381,8 +289,7 @@ export function TaskDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting || !formData.title.trim()}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={isSubmitting || !formData.title.trim()} isLoading={isSubmitting}>
               {mode === "create" ? "Create Task" : "Save Changes"}
             </Button>
           </DialogFooter>
