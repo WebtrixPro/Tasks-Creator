@@ -20,6 +20,12 @@ export function getPaginationParams(options: PaginationOptions) {
   return { page, limit, skip }
 }
 
+// Alias for API routes - returns skip and take for Prisma
+export function buildPagination(page: number, limit: number) {
+  const skip = (page - 1) * limit
+  return { skip, take: limit }
+}
+
 export function buildPaginationResponse<T>(
   data: T[],
   total: number,

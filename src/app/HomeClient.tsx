@@ -27,7 +27,7 @@ import {
   CalendarIcon,
   ArrowRightIcon,
 } from "@/components/ui/icons";
-import { ThemeToggle } from "@/components/theme-toggle";
+
 
 type ImportBatchSummary = { id: string; fileName: string | null; createdAt: string };
 
@@ -473,33 +473,23 @@ const handleConfigCancel = () => {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--background)]/80 backdrop-blur-lg">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--primary)]">
-              <svg className="h-5 w-5 text-[var(--primary-foreground)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight">Tasks Creator</h1>
-              <p className="text-xs text-[var(--muted-foreground)]">Basecamp Integration</p>
-            </div>
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* Page Header with Basecamp Status */}
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Import Tasks</h1>
+            <p className="text-sm text-[var(--muted-foreground)]">
+              Import markdown tasks and sync them to Basecamp
+            </p>
           </div>
-
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
+          <div className="flex items-center gap-2">
             {bcStatus?.connected ? (
-              <Badge variant="success">Connected</Badge>
+              <Badge variant="success">Basecamp Connected</Badge>
             ) : (
-              <Badge variant="outline">Disconnected</Badge>
+              <Badge variant="outline">Basecamp Disconnected</Badge>
             )}
           </div>
         </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Toast Message */}
         {importMessage && (
           <div
@@ -793,7 +783,7 @@ const handleConfigCancel = () => {
             </CardContent>
           </Card>
         </div>
-      </main>
+      </div>
 
       {/* Configuration Dialog */}
       <Dialog open={configDialogOpen} onClose={handleConfigCancel}>
