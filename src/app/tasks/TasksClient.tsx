@@ -194,7 +194,7 @@ export function TasksClient() {
     setIsSyncing(true);
     try {
       // Find the bucket ID from the selected project
-      const bcProject = basecampProjects.find(p => String(p.id) === selectedBasecampProject);
+      const bcProject = Array.isArray(basecampProjects) ? basecampProjects.find(p => String(p.id) === selectedBasecampProject) : undefined;
       const cardTable = bcProject?.dock?.find(d => d.name === "card_table");
       
       if (!cardTable) {
@@ -341,7 +341,7 @@ export function TasksClient() {
                 Import Team Members
               </Button>
               <span className="ml-auto text-xs text-[var(--muted-foreground)]">
-                {basecampProjects.length} Basecamp projects available
+                {Array.isArray(basecampProjects) ? basecampProjects.length : 0} Basecamp projects available
               </span>
             </div>
           )}
@@ -884,7 +884,7 @@ export function TasksClient() {
                 }}
                 options={[
                   { value: "", label: "Select a project..." },
-                  ...basecampProjects.map((p) => ({ value: String(p.id), label: p.name })),
+                  ...(Array.isArray(basecampProjects) ? basecampProjects.map((p) => ({ value: String(p.id), label: p.name })) : []),
                 ]}
                 placeholder="Select project"
                 disabled={bcProjectsLoading}
